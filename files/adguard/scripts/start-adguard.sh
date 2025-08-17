@@ -3,7 +3,7 @@
 # See https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#password-reset
 HOMELAB_ADGUARD_PASSWORD_HASHED=$(htpasswd -B -C 10 -n -b admin ${HOMELAB_ADGUARD_PASSWORD} | cut -d: -f2-)
 
-# We use `sed` to replace environment variables in the template file.
+# Replace environment variables in the template file.
 sed -e "s|\${HOMELAB_GENERAL_DOMAIN}|${HOMELAB_GENERAL_DOMAIN}|g" \
     -e "s|\${HOMELAB_GENERAL_SERVER_IP}|${HOMELAB_GENERAL_SERVER_IP}|g" \
     -e "s|\${HOMELAB_ADGUARD_PASSWORD_HASHED}|${HOMELAB_ADGUARD_PASSWORD_HASHED}|g" \
