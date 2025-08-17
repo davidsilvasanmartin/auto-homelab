@@ -1,0 +1,394 @@
+name: home
+
+networks:
+  homelab_network:
+    name: homelab_network
+    driver: bridge
+    ipam:
+      config:
+        # I think Docker takes the .1 address
+        # TODO see if DNS server address can be configured here
+        - subnet: ${GLOBAL_DOCKER_NETWORK}
+
+services:
+#  unbound:
+#    # See https://github.com/MatthewVance/unbound-docker
+#    # The documentation above explains how to serve custom DNS records for the local network
+#    image: mvance/unbound:1.22.0
+#    container_name: ${UNBOUND_CONTAINER_NAME}
+#    networks:
+#      homelab_network:
+#        ipv4_address: ${UNBOUND_IP}
+#    volumes:
+#      - ${UNBOUND_CONF_PATH}/unbound.conf.template:/opt/unbound/etc/unbound/unbound.conf.template:ro
+#      - ${UNBOUND_SCRIPTS_PATH}/start-unbound.sh:/start-unbound.sh:ro
+#    restart: unless-stopped
+#    environment:
+#      GLOBAL_SERVER_IP: ${GLOBAL_SERVER_IP}
+#      GLOBAL_DOMAIN: ${GLOBAL_DOMAIN}
+#    command: sh /start-unbound.sh
+
+  adguard:
+    # Default username: admin
+    # Default password: Admin123!
+    image: adguard/adguardhome:v0.107.63
+    container_name: ${ADGUARD_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${ADGUARD_IP}
+    ports:
+      # NOTE: The server needs to be listening on port 53 of the server machine. When setting
+      # custom DNS settings on MacOS, it's impossible to set a custom port. For example,
+      # setting "127.0.0.1:53000" as the DNS server on MacOS will NOT work
+      - "${ADGUARD_DNS_PORT_INTERNAL}:53/tcp" # plain dns over tcp
+      - "${ADGUARD_DNS_PORT_INTERNAL}:53/udp" # plain dns over udp
+    volumes:
+      - ${ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
+      - ${ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory
+    depends_on:
+      # NOTE: this is the NAME OF THE SERVICE, as defined in this file, and NOT THE NAME OF THE CONTAINER
+      - unbound
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adguard.rule=Host(`adguard.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.adguard.entrypoints=websecure"
+      - "traefik.http.routers.adguard.tls=true"
+      - "traefik.http.routers.adguard.tls.certresolver=cloudflare"
+      - "traefik.http.services.adguard.loadbalancer.server.port=${ADGUARD_WEB_PORT_INTERNAL}"
+
+  traefik:
+    image: traefik:v3.5.0
+    container_name: ${TRAEFIK_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${TRAEFIK_IP}
+    ports:
+      - "80:80"
+      - "443:443"
+      # Dashboard
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${TRAEFIK_CERTS_PATH}:/var/traefik/certs:rw
+      - ${TRAEFIK_LOGS_PATH}:/var/log/traefik:rw
+      - ${TRAEFIK_CONF_PATH}/traefik.yaml:/etc/traefik/traefik.yaml:ro
+    environment:
+      CF_DNS_API_TOKEN: ${TRAEFIK_CLOUDFLARE_API_TOKEN}
+      CF_DNS_API_EMAIL: ${TRAEFIK_CLOUDFLARE_API_EMAIL}
+    restart: unless-stopped
+    depends_on:
+      # This dependency is because Traefik needs to be able to reach internet services such as LetsEncrypt. So it needs
+      # to be able to resolve domain names. Recall that Docker will consult upstream DNS resolvers to resolve hostnames,
+      # and the upstream DNS resolver of this server should be AdGuard
+      - adguard
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
+
+  calibre:
+    # See: https://github.com/crocodilestick/Calibre-Web-Automated
+    image: crocodilestick/calibre-web-automated:V3.0.4
+    container_name: ${CALIBRE_CONTAINER_NAME}
+    environment:
+      PUID: 1000
+      PGID: 1000
+      # Edit to match your current timezone https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      TZ: Europe/London
+    volumes:
+      - ${CALIBRE_CONF_PATH}:/config
+      # This is an ingest dir, NOT a library one. Anything added here will be automatically added to your library according to the settings you have configured in CWA Settings page. All files placed here are REMOVED AFTER PROCESSING
+      - ${CALIBRE_INGEST_PATH}:/cwa-book-ingest
+      # If you don't have an existing library, CWA will automatically create one at the bind provided here
+      - ${CALIBRE_LIBRARY_PATH}:/calibre-library
+    networks:
+      homelab_network:
+        ipv4_address: ${CALIBRE_IP}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.calibre.rule=Host(`calibre.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.calibre.entrypoints=websecure"
+      - "traefik.http.routers.calibre.tls=true"
+      - "traefik.http.routers.calibre.tls.certresolver=cloudflare"
+      - "traefik.http.services.calibre.loadbalancer.server.port=${CALIBRE_PORT_INTERNAL}"
+    restart: unless-stopped
+
+  paperless-redis:
+    # PAPERLESS-NGX: see https://github.com/paperless-ngx/paperless-ngx and the documentation
+    # Copy-pasted (and improved) from https://github.com/paperless-ngx/paperless-ngx/blob/bd5f05ff2b59b3e1376ea05f079a2edd4e7b0f08/docker/compose/docker-compose.postgres.yml
+    image: redis:8.0.1-bookworm
+    container_name: ${PAPERLESS_REDIS_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${PAPERLESS_REDIS_IP}
+    volumes:
+      - ${PAPERLESS_REDIS_PATH}:/data
+    restart: unless-stopped
+  paperless-db:
+    image: postgres:17.5-bookworm
+    container_name: ${PAPERLESS_DB_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${PAPERLESS_DB_IP}
+    volumes:
+      - ${PAPERLESS_DB_PATH}:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${PAPERLESS_DB_DATABASE}
+      POSTGRES_USER: ${PAPERLESS_DB_USER}
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
+    restart: unless-stopped
+  paperless:
+    image: paperlessngx/paperless-ngx:2.16.1
+    container_name: ${PAPERLESS_WEB_CONTAINER_NAME}
+    depends_on:
+      - paperless-db
+      - paperless-redis
+    networks:
+      homelab_network:
+        ipv4_address: ${PAPERLESS_WEB_IP}
+    volumes:
+      - ${PAPERLESS_WEB_DATA_PATH}:/usr/src/paperless/data # Originally it was NOT a local volume
+      - ${PAPERLESS_WEB_MEDIA_PATH}:/usr/src/paperless/media # Originally it was NOT a local volume
+      - ${PAPERLESS_WEB_EXPORT_PATH}:/usr/src/paperless/export
+      - ${PAPERLESS_WEB_CONSUME_PATH}:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://${PAPERLESS_REDIS_CONTAINER_NAME}:6379
+      PAPERLESS_DBHOST: ${PAPERLESS_DB_CONTAINER_NAME}
+      # Below is needed so paperless works with the reverse proxy. See https://github.com/paperless-ngx/paperless-ngx/issues/712
+      PAPERLESS_URL: https://paperless.${GLOBAL_DOMAIN}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless.rule=Host(`paperless.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.paperless.entrypoints=websecure"
+      - "traefik.http.routers.paperless.tls=true"
+      - "traefik.http.routers.paperless.tls.certresolver=cloudflare"
+      - "traefik.http.services.paperless.loadbalancer.server.port=${PAPERLESS_WEB_PORT_INTERNAL}"
+
+  immich:
+    # IMMICH: downloaded fromhttps://github.com/immich-app/immich/releases/download/v1.133.1/docker-compose.yml
+    # TODO !!! Frontend shows "Server offline", it has to be something related to the reverse proxy
+    # TODO regarding the above, see: https://github.com/immich-app/immich/issues/4611#issuecomment-1932479760
+    container_name: ${IMMICH_WEB_CONTAINER_NAME}
+    image: ghcr.io/immich-app/immich-server:v1.133.1
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    volumes:
+      - ${IMMICH_WEB_UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      # See all options at https://immich.app/docs/install/environment-variables/
+      DB_HOSTNAME: ${IMMICH_DB_IP}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE}
+      DB_USERNAME: ${IMMICH_DB_USER}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      REDIS_HOSTNAME: ${IMMICH_REDIS_CONTAINER_NAME}
+      # The location where your uploaded files are stored
+      UPLOAD_LOCATION: ${IMMICH_WEB_UPLOAD_LOCATION}
+      # The location where your database files are stored. Network shares are not supported for the database
+      DB_DATA_LOCATION: ${IMMICH_DB_DATA_LOCATION}
+      TZ: ${IMMICH_TZ}
+    networks:
+      homelab_network:
+        ipv4_address: ${IMMICH_WEB_IP}
+    depends_on:
+      - immich-redis
+      - immich-db
+    restart: unless-stopped
+  immich-ml:
+    container_name: ${IMMICH_ML_CONTAINER_NAME}
+    # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:v1.133.1
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    volumes:
+      - ${IMMICH_ML_CACHE_DATA_LOCATION}:/cache
+    networks:
+      homelab_network:
+        ipv4_address: ${IMMICH_ML_IP}
+    restart: unless-stopped
+  immich-redis:
+    container_name: ${IMMICH_REDIS_CONTAINER_NAME}
+    image: docker.io/valkey/valkey:8-bookworm@sha256:ff21bc0f8194dc9c105b769aeabf9585fea6a8ed649c0781caeac5cb3c247884
+    volumes:
+      - ${IMMICH_REDIS_DATA_LOCATION}:/data
+    networks:
+      homelab_network:
+        ipv4_address: ${IMMICH_REDIS_IP}
+    restart: unless-stopped
+  immich-db:
+    container_name: ${IMMICH_DB_CONTAINER_NAME}
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
+      POSTGRES_USER: ${IMMICH_DB_USER}
+      POSTGRES_DB: ${IMMICH_DB_DATABASE}
+      TZ: ${IMMICH_TZ}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
+      # DB_STORAGE_TYPE: 'HDD'
+    networks:
+      homelab_network:
+        ipv4_address: ${IMMICH_DB_IP}
+    volumes:
+      - ${IMMICH_DB_DATA_LOCATION}:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  uptime:
+    # UPTIME KUMA: see https://github.com/louislam/uptime-kuma/wiki/%F0%9F%94%A7-How-to-Install
+    container_name: ${UPTIME_KUMA_CONTAINER_NAME}
+    image: louislam/uptime-kuma:2.0.0-beta.2 # TODO update to version 2 when released (and out of beta)
+    volumes:
+      - ${UPTIME_KUMA_DATA_PATH}:/app/data
+    networks:
+      homelab_network:
+        ipv4_address: ${UPTIME_KUMA_IP}
+    restart: unless-stopped
+
+#  linkwarden:
+#    # LINKWARDEN: see https://docs.linkwarden.app/self-hosting/installation
+#    # TODO enable AI search. See https://github.com/linkwarden/linkwarden/issues/1127
+#    # TODO maybe implement Meilisearch, see https://github.com/linkwarden/linkwarden/issues/1190
+#    image: ghcr.io/linkwarden/linkwarden:v2.10.2
+#    container_name: ${LINKWARDEN_WEB_CONTAINER_NAME}
+#    environment:
+#      NEXTAUTH_URL: ${LINKWARDEN_NEXTAUTH_URL}
+#      NEXTAUTH_SECRET: ${LINKWARDEN_NEXTAUTH_SECRET}
+#      DATABASE_URL: postgresql://${LINKWARDEN_DB_USER}:${LINKWARDEN_DB_PASSWORD}@${LINKWARDEN_DB_IP}:5432/${LINKWARDEN_DB_DATABASE}
+#    networks:
+#      homelab_network:
+#        ipv4_address: ${LINKWARDEN_WEB_IP}
+#    volumes:
+#      - ${LINKWARDEN_WEB_DATA_PATH}:/data/data
+#    depends_on:
+#      - linkwarden-db
+#    restart: unless-stopped
+#  linkwarden-db:
+#    image: postgres:17.5-bookworm
+#    container_name: ${LINKWARDEN_DB_CONTAINER_NAME}
+#    volumes:
+#      - ${LINKWARDEN_DB_PATH}:/var/lib/postgresql/data
+#    networks:
+#      homelab_network:
+#        ipv4_address: ${LINKWARDEN_DB_IP}
+#    environment:
+#      POSTGRES_PASSWORD: ${LINKWARDEN_DB_PASSWORD}
+#      POSTGRES_USER: ${LINKWARDEN_DB_USER}
+#      POSTGRES_DB: ${LINKWARDEN_DB_DATABASE}
+#    restart: unless-stopped
+
+#  jellyfin:
+#    image: jellyfin/jellyfin:10.11.0-rc3
+#    container_name: ${MEDIA_CONTAINER_NAME}
+#    volumes:
+#      - ${MEDIA_CONFIG_PATH}:/config
+#      - ${MEDIA_CACHE_PATH}:/cache
+#      - type: bind
+#        source: ${MEDIA_MEDIA_1_PATH}
+#        target: /media
+#      # Optional - More media sources, which can be mounted in read-only fashion
+#      #- type: bind
+#      #  source: /path/to/media2
+#      #  target: /media2
+#      #  read_only: true
+#      # Optional - extra fonts to be used during transcoding with subtitle burn-in
+#      #- type: bind
+#      #  source: /path/to/fonts
+#      #  target: /usr/local/share/fonts/custom
+#      #  read_only: true
+#    restart: 'unless-stopped'
+#    # Optional - alternative address used for autodiscovery
+#    #environment:
+#    #  - JELLYFIN_PublishedServerUrl=http://example.com
+#    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+#    #extra_hosts:
+#    #  - 'host.docker.internal:host-gateway'
+#    networks:
+#      homelab_network:
+#        ipv4_address: ${MEDIA_IP}
+
+  portainer:
+    # PORTAINER: see https://docs.portainer.io/start/install-ce/server/docker/linux
+    image: portainer/portainer-ce:2.32.0
+    container_name: ${PORTAINER_CONTAINER_NAME}
+    command: -H unix:///var/run/docker.sock
+    networks:
+      homelab_network:
+        ipv4_address: ${PORTAINER_IP}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PORTAINER_DATA_PATH}:/data
+    restart: unless-stopped
+
+  firefly:
+    # See this: https://docs.firefly-iii.org/how-to/firefly-iii/installation/docker/
+    # ... because it has instructions on setting this up, and has a lot more env variables
+    image: fireflyiii/core:version-6.2.21
+    container_name: ${FIREFLY_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${FIREFLY_IP}
+    restart: unless-stopped
+    volumes:
+      - ${FIREFLY_UPLOAD_PATH}:/var/www/html/storage/upload
+    depends_on:
+      - firefly-db
+    environment:
+      APP_ENV: ${FIREFLY_APP_ENV}
+      APP_DEBUG: ${FIREFLY_APP_DEBUG}
+      SITE_OWNER: ${FIREFLY_SITE_OWNER}
+      APP_KEY: ${FIREFLY_APP_KEY}
+      DEFAULT_LANGUAGE: ${FIREFLY_DEFAULT_LANGUAGE}
+      DEFAULT_LOCALE: ${FIREFLY_DEFAULT_LOCALE}
+      TZ: ${FIREFLY_TZ}
+      TRUSTED_PROXIES: ${FIREFLY_TRUSTED_PROXIES}
+      LOG_CHANNEL: ${FIREFLY_LOG_CHANNEL}
+      APP_LOG_LEVEL: ${FIREFLY_APP_LOG_LEVEL}
+      AUDIT_LOG_LEVEL: ${FIREFLY_AUDIT_LOG_LEVEL}
+      AUDIT_LOG_CHANNEL: ${FIREFLY_AUDIT_LOG_CHANNEL}
+      DB_CONNECTION: ${FIREFLY_DB_CONNECTION}
+      DB_HOST: ${FIREFLY_DB_IP}
+      DB_PORT: ${FIREFLY_DB_PORT}
+      DB_DATABASE: ${FIREFLY_DB_DATABASE}
+      DB_USERNAME: ${FIREFLY_DB_USER}
+      DB_PASSWORD: ${FIREFLY_DB_PASSWORD}
+      MYSQL_USE_SSL: ${FIREFLY_MYSQL_USE_SSL}
+      CACHE_DRIVER: ${FIREFLY_CACHE_DRIVER}
+      SESSION_DRIVER: ${FIREFLY_SESSION_DRIVER}
+      COOKIE_PATH: ${FIREFLY_COOKIE_PATH}
+      COOKIE_DOMAIN: ${FIREFLY_COOKIE_DOMAIN}
+      COOKIE_SECURE: ${FIREFLY_COOKIE_SECURE}
+      COOKIE_SAMESITE: ${FIREFLY_COOKIE_SAMESITE}
+      ENABLE_EXTERNAL_MAP: ${FIREFLY_ENABLE_EXTERNAL_MAP}
+      MAP_DEFAULT_LAT: ${FIREFLY_MAP_DEFAULT_LAT}
+      MAP_DEFAULT_LONG: ${FIREFLY_MAP_DEFAULT_LONG}
+      MAP_DEFAULT_ZOOM: ${FIREFLY_MAP_DEFAULT_ZOOM}
+      ENABLE_EXCHANGE_RATES: ${FIREFLY_ENABLE_EXCHANGE_RATES}
+      ENABLE_EXTERNAL_RATES: ${FIREFLY_ENABLE_EXTERNAL_RATES}
+      AUTHENTICATION_GUARD: ${FIREFLY_AUTHENTICATION_GUARD}
+      USE_RUNNING_BALANCE: ${FIREFLY_USE_RUNNING_BALANCE}
+      FIREFLY_III_LAYOUT: ${FIREFLY_FIREFLY_III_LAYOUT}
+      QUERY_PARSER_IMPLEMENTATION: ${FIREFLY_QUERY_PARSER_IMPLEMENTATION}
+      # Please make sure this URL matches the external URL of your Firefly III installation.
+      # It is used to validate specific requests and to generate URLs in emails.
+      APP_URL: "https://firefly.${GLOBAL_DOMAIN}"
+  firefly-db:
+    image: mariadb:11.8.2-noble
+    container_name: ${FIREFLY_DB_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${FIREFLY_DB_IP}
+    restart: unless-stopped
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: yes
+      MYSQL_USER: ${FIREFLY_DB_USER}
+      MYSQL_PASSWORD: ${FIREFLY_DB_PASSWORD}
+      MYSQL_DATABASE: ${FIREFLY_DB_DATABASE}
+    volumes:
+      - ${FIREFLY_DB_PATH}:/var/lib/mysql

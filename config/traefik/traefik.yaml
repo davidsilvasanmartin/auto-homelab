@@ -1,0 +1,39 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+log:
+  level: DEBUG
+  filePath: "/var/log/traefik/traefik.log"
+accessLog:
+  filePath: "/var/log/traefik/access.log"
+api:
+  dashboard: true
+  # Exposes the dashboard on port 8080 with no TLS, I guess?
+  insecure: true
+entryPoints:
+  web:
+    address: ":80"
+    # Redirect everything to HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    # Do not expose EVERY container that traefik finds. We want to expose individual containers manually
+    exposedByDefault: false
+certificatesResolvers:
+  cloudflare:
+    acme:
+      storage: "/var/traefik/certs/cloudflare-acme.json"
+      caServer: "https://acme-v02.api.letsencrypt.org/directory"
+      keyType: "EC256"
+      dnsChallenge:
+        provider: "cloudflare"
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"

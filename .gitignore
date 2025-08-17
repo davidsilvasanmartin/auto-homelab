@@ -1,0 +1,8 @@
+.idea/
+backup/
+home.iml
+*.DS_Store
+.env
+.env.generated*
+test-data/
+./.venv/
