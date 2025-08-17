@@ -2,7 +2,6 @@
 backup/
 home.iml
 *.DS_Store
-.env
-.env.generated*
+.env*
 test-data/
 ./.venv/

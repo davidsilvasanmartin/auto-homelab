@@ -33,8 +33,14 @@ services:
       - ${HOMELAB_ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
       - ${HOMELAB_ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory
       - ./files/adguard/scripts:/auto-homelab/scripts:ro
+    environment:
+      HOMELAB_GENERAL_DOMAIN: ${HOMELAB_GENERAL_DOMAIN}
+      HOMELAB_GENERAL_SERVER_IP: ${HOMELAB_GENERAL_SERVER_IP}
+      HOMELAB_ADGUARD_PASSWORD: ${HOMELAB_ADGUARD_PASSWORD}
     restart: unless-stopped
-    command: sh /auto-homelab/scripts/start-adguard.sh
+    entrypoint:
+      - /bin/sh
+      - /auto-homelab/scripts/start-adguard.sh
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adguard.rule=Host(`adguard.${HOMELAB_GENERAL_DOMAIN}`)"
@@ -63,11 +69,6 @@ services:
       CF_DNS_API_TOKEN: ${HOMELAB_TRAEFIK_CLOUDFLARE_API_TOKEN}
       CF_DNS_API_EMAIL: ${HOMELAB_TRAEFIK_CLOUDFLARE_API_EMAIL}
     restart: unless-stopped
-    depends_on:
-      # This dependency is because Traefik needs to be able to reach internet services such as LetsEncrypt. So it needs
-      # to be able to resolve domain names. Recall that Docker will consult upstream DNS resolvers to resolve hostnames,
-      # and the upstream DNS resolver of this server should be AdGuard
-      - adguard
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.${HOMELAB_GENERAL_DOMAIN}`)"
@@ -185,6 +186,7 @@ services:
     depends_on:
       - immich-redis
       - immich-db
+      - immich-machine-learning
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -193,7 +195,7 @@ services:
       - "traefik.http.routers.immich.tls=true"
       - "traefik.http.routers.immich.tls.certresolver=cloudflare"
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
-  immich-ml:
+  immich-machine-learning:
     container_name: ${HOMELAB_IMMICH_ML_CONTAINER_NAME}
     # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
@@ -211,7 +213,7 @@ services:
     container_name: ${HOMELAB_IMMICH_REDIS_CONTAINER_NAME}
     image: docker.io/valkey/valkey:8-bookworm@sha256:ff21bc0f8194dc9c105b769aeabf9585fea6a8ed649c0781caeac5cb3c247884
     volumes:
-      - ${HOMELAB_IMMICH_REDIS_DATA_LOCATION}:/data
+      - ${HOMELAB_IMMICH_REDIS_DATA_PATH}:/data
     networks:
       homelab_network:
         ipv4_address: ${HOMELAB_IMMICH_REDIS_IP}
@@ -350,7 +352,7 @@ services:
       TZ: ${HOMELAB_GENERAL_TIMEZONE}
       TRUSTED_PROXIES: ${HOMELAB_FIREFLY_TRUSTED_PROXIES}
       LOG_CHANNEL: ${HOMELAB_FIREFLY_LOG_CHANNEL}
-      APP_LOG_LEVEL: ${HOMELAB_FIREFLY_APP_LOG_LEVEL}
+      APP_LOG_LEVEL: ${HOMELAB_FIREFLY_LOG_LEVEL}
       AUDIT_LOG_LEVEL: ${HOMELAB_FIREFLY_AUDIT_LOG_LEVEL}
       AUDIT_LOG_CHANNEL: ${HOMELAB_FIREFLY_AUDIT_LOG_CHANNEL}
       DB_CONNECTION: ${HOMELAB_FIREFLY_DB_CONNECTION}

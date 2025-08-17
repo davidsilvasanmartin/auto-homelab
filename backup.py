@@ -5,13 +5,6 @@ import os
 from typing import List, Optional, Union
 from dotenv import load_dotenv
 
-"""
-    TODO
-     - Ideally I would run this script from Docker, because I can access containers via their 10.x IP addresses.
-       I'm going to need to access databases that are not accessible from the host machine AFAIK.
-       ^^^^^ NO: I CAN USE docker run TO DUMP DBS
-     - Create environment variables for Docker volumes AND container names. That way I can use them here.
-"""
 
 class CommandRunner:
     @staticmethod
@@ -342,10 +335,9 @@ if __name__ == "__main__":
             output_path=main_backup_dir / "calibre-web-automated-config",
             post_command="docker compose start calibre",
         ),
-        # TODO from here: use env vars for directories
         DirectoryBackup(
             pre_command="docker compose start paperless-redis paperless-db paperless && docker compose exec -T paperless document_exporter -d ../export",
-            source_path=Path("./paperless-ngx/webserver/export"),
+            source_path=Path(get_required_env_var("HOMELAB_PAPERLESS_WEB_EXPORT_PATH")),
             output_path=main_backup_dir / "paperless-ngx-webserver-export",
         ),
         PostgreSQLBackup(

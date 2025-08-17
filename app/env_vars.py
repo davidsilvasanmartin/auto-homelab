@@ -83,7 +83,7 @@ def get_value_for_type(var_name: str, var_description: str, var_type: str, var_v
             charset_name = "ALPHA"
             length = 32
             charset_pools = {
-                "ALL": string.ascii_letters + string.digits + "$%&*+-.:<>^_|~",
+                "ALL": string.ascii_letters + string.digits + "%&*+-.:<>^_|~",
                 "ALPHA": string.ascii_letters + string.digits,
             }
 

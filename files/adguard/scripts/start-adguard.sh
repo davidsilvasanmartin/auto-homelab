@@ -10,11 +10,11 @@ sed -e "s|\${HOMELAB_GENERAL_DOMAIN}|${HOMELAB_GENERAL_DOMAIN}|g" \
     < /auto-homelab/scripts/AdGuardHome.yaml.template > /opt/adguardhome/conf/AdGuardHome.yaml
 
 # Check if the config file was created successfully
-if [ ! -s /auto-homelab/scripts/AdGuardHome.yaml ]; then
+if [ ! -s /opt/adguardhome/conf/AdGuardHome.yaml ]; then
     echo "Error: AdGuardHome.yaml is empty after variable substitution. Exiting."
     exit 1
 fi
 
 # Execute the original adguard command. I found this command by examining the original Dockerfile.
 # I may have to review and change this command in the future.
-/opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work
+exec /opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work
