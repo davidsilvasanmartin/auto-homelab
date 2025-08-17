@@ -125,9 +125,8 @@ def main() -> None:
     # "dest" must be the name of an environment variable that holds the absolute path of the config directory
     # of the corresponding service.
     conf_list = [
-        {"source": "./adguard/conf", "dest": "ADGUARD_CONF_PATH"},
+        {"source": "./adguard/conf", "dest": "HOMELAB_ADGUARD_CONF_PATH"},
         # Examples you can enable/extend later:
-        # {"source": "./traefik/config", "dest": "TRAEFIK_CONF_PATH"},
         # {"source": "./unbound/conf", "dest": "UNBOUND_CONF_PATH"},
     ]
 

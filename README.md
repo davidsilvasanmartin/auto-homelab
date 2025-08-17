@@ -1,8 +1,10 @@
-# Home project
+# Auto-homelab
 
 -----
 
 # How to use
+
+TODO change all of this !!!
 
 1. Copy the contents of `.env.example` into a new file called `.env`, on
    this directory.

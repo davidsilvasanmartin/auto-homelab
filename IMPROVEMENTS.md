@@ -167,7 +167,7 @@ The recommendations are grouped by priority and theme, with actionable steps and
   ```yaml
   labels:
     - "traefik.enable=true"
-    - "traefik.http.routers.paperless.rule=Host(`paperless.${GLOBAL_DOMAIN}`)"
+    - "traefik.http.routers.paperless.rule=Host(`paperless.${HOMELAB_GENERAL_DOMAIN}`)"
     - "traefik.http.routers.paperless.entrypoints=websecure"
     - "traefik.http.routers.paperless.tls.certresolver=letsencrypt"
     - "traefik.http.services.paperless.loadbalancer.server.port=8000" # match container port

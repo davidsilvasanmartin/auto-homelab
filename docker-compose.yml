@@ -7,7 +7,7 @@ networks:
     ipam:
       config:
         # I think Docker takes the .1 address
-        - subnet: ${GLOBAL_DOCKER_NETWORK}
+        - subnet: ${HOMELAB_GENERAL_DOCKER_NETWORK}
 
 services:
   adguard:
@@ -19,36 +19,36 @@ services:
       context: .
       dockerfile: ./files/adguard/Dockerfile
     image: adguard/adguardhome:with-apache2-utils
-    container_name: ${ADGUARD_CONTAINER_NAME}
+    container_name: ${HOMELAB_ADGUARD_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${ADGUARD_IP}
+        ipv4_address: ${HOMELAB_ADGUARD_IP}
     ports:
       # NOTE: The server needs to be listening on port 53 of the server machine. When setting
       # custom DNS settings on MacOS, it's impossible to set a custom port. For example,
       # setting "127.0.0.1:53000" as the DNS server on MacOS will NOT work
-      - "${ADGUARD_DNS_PORT_INTERNAL}:53/tcp" # plain dns over tcp
-      - "${ADGUARD_DNS_PORT_INTERNAL}:53/udp" # plain dns over udp
+      - "53:53/tcp" # plain dns over tcp
+      - "53:53/udp" # plain dns over udp
     volumes:
-      - ${ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
-      - ${ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory
+      - ${HOMELAB_ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
+      - ${HOMELAB_ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory
       - ./files/adguard/scripts:/auto-homelab/scripts:ro
     restart: unless-stopped
     command: sh /auto-homelab/scripts/start-adguard.sh
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.adguard.rule=Host(`adguard.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.adguard.rule=Host(`adguard.${HOMELAB_GENERAL_DOMAIN}`)"
       - "traefik.http.routers.adguard.entrypoints=websecure"
       - "traefik.http.routers.adguard.tls=true"
       - "traefik.http.routers.adguard.tls.certresolver=cloudflare"
-      - "traefik.http.services.adguard.loadbalancer.server.port=${ADGUARD_WEB_PORT_INTERNAL}"
+      - "traefik.http.services.adguard.loadbalancer.server.port=3000"
 
   traefik:
     image: traefik:v3.5.0
-    container_name: ${TRAEFIK_CONTAINER_NAME}
+    container_name: ${HOMELAB_TRAEFIK_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${TRAEFIK_IP}
+        ipv4_address: ${HOMELAB_TRAEFIK_IP}
     ports:
       - "80:80"
       - "443:443"
@@ -56,12 +56,12 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${TRAEFIK_CERTS_PATH}:/var/traefik/certs:rw
-      - ${TRAEFIK_LOGS_PATH}:/var/log/traefik:rw
+      - ${HOMELAB_TRAEFIK_CERTS_PATH}:/var/traefik/certs:rw
+      - ${HOMELAB_TRAEFIK_LOGS_PATH}:/var/log/traefik:rw
       - ./files/traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
     environment:
-      CF_DNS_API_TOKEN: ${TRAEFIK_CLOUDFLARE_API_TOKEN}
-      CF_DNS_API_EMAIL: ${TRAEFIK_CLOUDFLARE_API_EMAIL}
+      CF_DNS_API_TOKEN: ${HOMELAB_TRAEFIK_CLOUDFLARE_API_TOKEN}
+      CF_DNS_API_EMAIL: ${HOMELAB_TRAEFIK_CLOUDFLARE_API_EMAIL}
     restart: unless-stopped
     depends_on:
       # This dependency is because Traefik needs to be able to reach internet services such as LetsEncrypt. So it needs
@@ -70,7 +70,7 @@ services:
       - adguard
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${HOMELAB_GENERAL_DOMAIN}`)"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
@@ -95,7 +95,7 @@ services:
         ipv4_address: ${CALIBRE_IP}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.calibre.rule=Host(`calibre.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.calibre.rule=Host(`calibre.${HOMELAB_GENERAL_DOMAIN}`)"
       - "traefik.http.routers.calibre.entrypoints=websecure"
       - "traefik.http.routers.calibre.tls=true"
       - "traefik.http.routers.calibre.tls.certresolver=cloudflare"
@@ -145,11 +145,11 @@ services:
       PAPERLESS_REDIS: redis://${PAPERLESS_REDIS_CONTAINER_NAME}:6379
       PAPERLESS_DBHOST: ${PAPERLESS_DB_CONTAINER_NAME}
       # Below is needed so paperless works with the reverse proxy. See https://github.com/paperless-ngx/paperless-ngx/issues/712
-      PAPERLESS_URL: https://paperless.${GLOBAL_DOMAIN}
+      PAPERLESS_URL: https://paperless.${HOMELAB_GENERAL_DOMAIN}
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.paperless.rule=Host(`paperless.${GLOBAL_DOMAIN}`)"
+      - "traefik.http.routers.paperless.rule=Host(`paperless.${HOMELAB_GENERAL_DOMAIN}`)"
       - "traefik.http.routers.paperless.entrypoints=websecure"
       - "traefik.http.routers.paperless.tls=true"
       - "traefik.http.routers.paperless.tls.certresolver=cloudflare"
@@ -364,7 +364,7 @@ services:
       QUERY_PARSER_IMPLEMENTATION: ${FIREFLY_QUERY_PARSER_IMPLEMENTATION}
       # Please make sure this URL matches the external URL of your Firefly III installation.
       # It is used to validate specific requests and to generate URLs in emails.
-      APP_URL: "https://firefly.${GLOBAL_DOMAIN}"
+      APP_URL: "https://firefly.${HOMELAB_GENERAL_DOMAIN}"
   firefly-db:
     image: mariadb:11.8.2-noble
     container_name: ${FIREFLY_DB_CONTAINER_NAME}
