@@ -7,7 +7,6 @@ from pathlib import Path
 import sys
 import secrets
 import string
-from unittest import case
 
 from app.printer import Printer
 from app.validator import Validator

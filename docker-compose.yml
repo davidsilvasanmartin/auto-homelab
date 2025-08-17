@@ -7,31 +7,18 @@ networks:
     ipam:
       config:
         # I think Docker takes the .1 address
-        # TODO see if DNS server address can be configured here
         - subnet: ${GLOBAL_DOCKER_NETWORK}
 
 services:
-#  unbound:
-#    # See https://github.com/MatthewVance/unbound-docker
-#    # The documentation above explains how to serve custom DNS records for the local network
-#    image: mvance/unbound:1.22.0
-#    container_name: ${UNBOUND_CONTAINER_NAME}
-#    networks:
-#      homelab_network:
-#        ipv4_address: ${UNBOUND_IP}
-#    volumes:
-#      - ${UNBOUND_CONF_PATH}/unbound.conf.template:/opt/unbound/etc/unbound/unbound.conf.template:ro
-#      - ${UNBOUND_SCRIPTS_PATH}/start-unbound.sh:/start-unbound.sh:ro
-#    restart: unless-stopped
-#    environment:
-#      GLOBAL_SERVER_IP: ${GLOBAL_SERVER_IP}
-#      GLOBAL_DOMAIN: ${GLOBAL_DOMAIN}
-#    command: sh /start-unbound.sh
-
   adguard:
-    # Default username: admin
-    # Default password: Admin123!
-    image: adguard/adguardhome:v0.107.63
+    # I had to create a custom Dockerfile for AdGuard, because the default one does not include the apache2-utils package.
+    # This package is used to encrypt passwords. See https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#password-reset
+    # Unfortunately, AdGuard's configuration file mixes configuration with data (usernames, passwords, etc), and I
+    # have not found a better way to get around this.
+    build:
+      context: .
+      dockerfile: ./files/adguard/Dockerfile
+    image: adguard/adguardhome:with-apache2-utils
     container_name: ${ADGUARD_CONTAINER_NAME}
     networks:
       homelab_network:
@@ -45,10 +32,9 @@ services:
     volumes:
       - ${ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
       - ${ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory
-    depends_on:
-      # NOTE: this is the NAME OF THE SERVICE, as defined in this file, and NOT THE NAME OF THE CONTAINER
-      - unbound
+      - ./files/adguard/scripts:/auto-homelab/scripts:ro
     restart: unless-stopped
+    command: sh /auto-homelab/scripts/start-adguard.sh
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adguard.rule=Host(`adguard.${GLOBAL_DOMAIN}`)"
@@ -72,7 +58,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${TRAEFIK_CERTS_PATH}:/var/traefik/certs:rw
       - ${TRAEFIK_LOGS_PATH}:/var/log/traefik:rw
-      - ${TRAEFIK_CONF_PATH}/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./files/traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro
     environment:
       CF_DNS_API_TOKEN: ${TRAEFIK_CLOUDFLARE_API_TOKEN}
       CF_DNS_API_EMAIL: ${TRAEFIK_CLOUDFLARE_API_EMAIL}
@@ -144,6 +130,7 @@ services:
     image: paperlessngx/paperless-ngx:2.16.1
     container_name: ${PAPERLESS_WEB_CONTAINER_NAME}
     depends_on:
+      # NOTE: this is the NAME OF THE SERVICE, as defined in this file, and NOT THE NAME OF THE CONTAINER
       - paperless-db
       - paperless-redis
     networks:
