@@ -324,7 +324,7 @@ if __name__ == "__main__":
     # Load environment variables from .env file
     load_dotenv()
 
-    main_backup_dir = Path(get_required_env_var("BACKUP_PATH"))
+    main_backup_dir = Path(get_required_env_var("HOMELAB_BACKUP_PATH"))
     # Prepare the main backup directory
     prepare_backup_directory(main_backup_dir)
 
@@ -360,10 +360,10 @@ if __name__ == "__main__":
             output_path=main_backup_dir / "immich-library"
         ),
         MariaDbBackup(
-            container_name=get_required_env_var("FIREFLY_DB_CONTAINER_NAME"),
-            db_name=get_required_env_var("FIREFLY_DB_DATABASE"),
-            username=get_required_env_var("FIREFLY_DB_USER"),
-            password=get_required_env_var("FIREFLY_DB_PASSWORD"),
+            container_name=get_required_env_var("HOMELAB_FIREFLY_DB_CONTAINER_NAME"),
+            db_name=get_required_env_var("HOMELAB_FIREFLY_DB_DATABASE"),
+            username=get_required_env_var("HOMELAB_FIREFLY_DB_USER"),
+            password=get_required_env_var("HOMELAB_FIREFLY_DB_PASSWORD"),
             output_path=main_backup_dir / "firefly-db"
         )
     ]

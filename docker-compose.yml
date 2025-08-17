@@ -234,16 +234,16 @@ services:
       - ${HOMELAB_IMMICH_DB_DATA_PATH}:/var/lib/postgresql/data
     restart: unless-stopped
 
-  uptime:
-    # UPTIME KUMA: see https://github.com/louislam/uptime-kuma/wiki/%F0%9F%94%A7-How-to-Install
-    container_name: ${UPTIME_KUMA_CONTAINER_NAME}
-    image: louislam/uptime-kuma:2.0.0-beta.2 # TODO update to version 2 when released (and out of beta)
-    volumes:
-      - ${UPTIME_KUMA_DATA_PATH}:/app/data
-    networks:
-      homelab_network:
-        ipv4_address: ${UPTIME_KUMA_IP}
-    restart: unless-stopped
+#  uptime:
+#    # UPTIME KUMA: see https://github.com/louislam/uptime-kuma/wiki/%F0%9F%94%A7-How-to-Install
+#    container_name: ${UPTIME_KUMA_CONTAINER_NAME}
+#    image: louislam/uptime-kuma:2.0.0-beta.2 # TODO update to version 2 when released (and out of beta)
+#    volumes:
+#      - ${UPTIME_KUMA_DATA_PATH}:/app/data
+#    networks:
+#      homelab_network:
+#        ipv4_address: ${UPTIME_KUMA_IP}
+#    restart: unless-stopped
 
 #  linkwarden:
 #    # LINKWARDEN: see https://docs.linkwarden.app/self-hosting/installation
@@ -310,79 +310,90 @@ services:
   portainer:
     # PORTAINER: see https://docs.portainer.io/start/install-ce/server/docker/linux
     image: portainer/portainer-ce:2.32.0
-    container_name: ${PORTAINER_CONTAINER_NAME}
+    container_name: ${HOMELAB_PORTAINER_CONTAINER_NAME}
     command: -H unix:///var/run/docker.sock
     networks:
       homelab_network:
-        ipv4_address: ${PORTAINER_IP}
+        ipv4_address: ${HOMELAB_PORTAINER_IP}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${PORTAINER_DATA_PATH}:/data
+      - ${HOMELAB_PORTAINER_DATA_PATH}:/data
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${HOMELAB_GENERAL_DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.tls.certresolver=cloudflare"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   firefly:
     # See this: https://docs.firefly-iii.org/how-to/firefly-iii/installation/docker/
     # ... because it has instructions on setting this up, and has a lot more env variables
     image: fireflyiii/core:version-6.2.21
-    container_name: ${FIREFLY_CONTAINER_NAME}
+    container_name: ${HOMELAB_FIREFLY_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${FIREFLY_IP}
+        ipv4_address: ${HOMELAB_FIREFLY_IP}
     restart: unless-stopped
     volumes:
-      - ${FIREFLY_UPLOAD_PATH}:/var/www/html/storage/upload
+      - ${HOMELAB_FIREFLY_UPLOAD_PATH}:/var/www/html/storage/upload
     depends_on:
       - firefly-db
     environment:
-      APP_ENV: ${FIREFLY_APP_ENV}
-      APP_DEBUG: ${FIREFLY_APP_DEBUG}
-      SITE_OWNER: ${FIREFLY_SITE_OWNER}
-      APP_KEY: ${FIREFLY_APP_KEY}
-      DEFAULT_LANGUAGE: ${FIREFLY_DEFAULT_LANGUAGE}
-      DEFAULT_LOCALE: ${FIREFLY_DEFAULT_LOCALE}
-      TZ: ${FIREFLY_TZ}
-      TRUSTED_PROXIES: ${FIREFLY_TRUSTED_PROXIES}
-      LOG_CHANNEL: ${FIREFLY_LOG_CHANNEL}
-      APP_LOG_LEVEL: ${FIREFLY_APP_LOG_LEVEL}
-      AUDIT_LOG_LEVEL: ${FIREFLY_AUDIT_LOG_LEVEL}
-      AUDIT_LOG_CHANNEL: ${FIREFLY_AUDIT_LOG_CHANNEL}
-      DB_CONNECTION: ${FIREFLY_DB_CONNECTION}
-      DB_HOST: ${FIREFLY_DB_IP}
-      DB_PORT: ${FIREFLY_DB_PORT}
-      DB_DATABASE: ${FIREFLY_DB_DATABASE}
-      DB_USERNAME: ${FIREFLY_DB_USER}
-      DB_PASSWORD: ${FIREFLY_DB_PASSWORD}
-      MYSQL_USE_SSL: ${FIREFLY_MYSQL_USE_SSL}
-      CACHE_DRIVER: ${FIREFLY_CACHE_DRIVER}
-      SESSION_DRIVER: ${FIREFLY_SESSION_DRIVER}
-      COOKIE_PATH: ${FIREFLY_COOKIE_PATH}
-      COOKIE_DOMAIN: ${FIREFLY_COOKIE_DOMAIN}
-      COOKIE_SECURE: ${FIREFLY_COOKIE_SECURE}
-      COOKIE_SAMESITE: ${FIREFLY_COOKIE_SAMESITE}
-      ENABLE_EXTERNAL_MAP: ${FIREFLY_ENABLE_EXTERNAL_MAP}
-      MAP_DEFAULT_LAT: ${FIREFLY_MAP_DEFAULT_LAT}
-      MAP_DEFAULT_LONG: ${FIREFLY_MAP_DEFAULT_LONG}
-      MAP_DEFAULT_ZOOM: ${FIREFLY_MAP_DEFAULT_ZOOM}
-      ENABLE_EXCHANGE_RATES: ${FIREFLY_ENABLE_EXCHANGE_RATES}
-      ENABLE_EXTERNAL_RATES: ${FIREFLY_ENABLE_EXTERNAL_RATES}
-      AUTHENTICATION_GUARD: ${FIREFLY_AUTHENTICATION_GUARD}
-      USE_RUNNING_BALANCE: ${FIREFLY_USE_RUNNING_BALANCE}
-      FIREFLY_III_LAYOUT: ${FIREFLY_FIREFLY_III_LAYOUT}
-      QUERY_PARSER_IMPLEMENTATION: ${FIREFLY_QUERY_PARSER_IMPLEMENTATION}
+      APP_ENV: ${HOMELAB_FIREFLY_APP_ENV}
+      APP_DEBUG: ${HOMELAB_FIREFLY_APP_DEBUG}
+      SITE_OWNER: ${HOMELAB_FIREFLY_SITE_OWNER}
+      APP_KEY: ${HOMELAB_FIREFLY_APP_KEY}
+      DEFAULT_LANGUAGE: ${HOMELAB_FIREFLY_DEFAULT_LANGUAGE}
+      DEFAULT_LOCALE: ${HOMELAB_FIREFLY_DEFAULT_LOCALE}
+      TZ: ${HOMELAB_GENERAL_TIMEZONE}
+      TRUSTED_PROXIES: ${HOMELAB_FIREFLY_TRUSTED_PROXIES}
+      LOG_CHANNEL: ${HOMELAB_FIREFLY_LOG_CHANNEL}
+      APP_LOG_LEVEL: ${HOMELAB_FIREFLY_APP_LOG_LEVEL}
+      AUDIT_LOG_LEVEL: ${HOMELAB_FIREFLY_AUDIT_LOG_LEVEL}
+      AUDIT_LOG_CHANNEL: ${HOMELAB_FIREFLY_AUDIT_LOG_CHANNEL}
+      DB_CONNECTION: ${HOMELAB_FIREFLY_DB_CONNECTION}
+      DB_HOST: ${HOMELAB_FIREFLY_DB_IP}
+      DB_PORT: 3306
+      DB_DATABASE: ${HOMELAB_FIREFLY_DB_DATABASE}
+      DB_USERNAME: ${HOMELAB_FIREFLY_DB_USER}
+      DB_PASSWORD: ${HOMELAB_FIREFLY_DB_PASSWORD}
+      MYSQL_USE_SSL: ${HOMELAB_FIREFLY_MYSQL_USE_SSL}
+      CACHE_DRIVER: ${HOMELAB_FIREFLY_CACHE_DRIVER}
+      SESSION_DRIVER: ${HOMELAB_FIREFLY_SESSION_DRIVER}
+      COOKIE_PATH: ${HOMELAB_FIREFLY_COOKIE_PATH}
+      COOKIE_DOMAIN: ${HOMELAB_FIREFLY_COOKIE_DOMAIN}
+      COOKIE_SECURE: ${HOMELAB_FIREFLY_COOKIE_SECURE}
+      COOKIE_SAMESITE: ${HOMELAB_FIREFLY_COOKIE_SAMESITE}
+      ENABLE_EXTERNAL_MAP: ${HOMELAB_FIREFLY_ENABLE_EXTERNAL_MAP}
+      ENABLE_EXCHANGE_RATES: ${HOMELAB_FIREFLY_ENABLE_EXCHANGE_RATES}
+      ENABLE_EXTERNAL_RATES: ${HOMELAB_FIREFLY_ENABLE_EXTERNAL_RATES}
+      AUTHENTICATION_GUARD: ${HOMELAB_FIREFLY_AUTHENTICATION_GUARD}
+      USE_RUNNING_BALANCE: ${HOMELAB_FIREFLY_USE_RUNNING_BALANCE}
+      FIREFLY_III_LAYOUT: ${HOMELAB_FIREFLY_LAYOUT}
+      QUERY_PARSER_IMPLEMENTATION: ${HOMELAB_FIREFLY_QUERY_PARSER_IMPLEMENTATION}
       # Please make sure this URL matches the external URL of your Firefly III installation.
       # It is used to validate specific requests and to generate URLs in emails.
       APP_URL: "https://firefly.${HOMELAB_GENERAL_DOMAIN}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.firefly.rule=Host(`firefly.${HOMELAB_GENERAL_DOMAIN}`)"
+      - "traefik.http.routers.firefly.entrypoints=websecure"
+      - "traefik.http.routers.firefly.tls=true"
+      - "traefik.http.routers.firefly.tls.certresolver=cloudflare"
+      - "traefik.http.services.firefly.loadbalancer.server.port=8080"
   firefly-db:
     image: mariadb:11.8.2-noble
-    container_name: ${FIREFLY_DB_CONTAINER_NAME}
+    container_name: ${HOMELAB_FIREFLY_DB_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${FIREFLY_DB_IP}
+        ipv4_address: ${HOMELAB_FIREFLY_DB_IP}
     restart: unless-stopped
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: yes
-      MYSQL_USER: ${FIREFLY_DB_USER}
-      MYSQL_PASSWORD: ${FIREFLY_DB_PASSWORD}
-      MYSQL_DATABASE: ${FIREFLY_DB_DATABASE}
+      MYSQL_USER: ${HOMELAB_FIREFLY_DB_USER}
+      MYSQL_PASSWORD: ${HOMELAB_FIREFLY_DB_PASSWORD}
+      MYSQL_DATABASE: ${HOMELAB_FIREFLY_DB_DATABASE}
     volumes:
-      - ${FIREFLY_DB_PATH}:/var/lib/mysql
+      - ${HOMELAB_FIREFLY_DB_DATA_PATH}:/var/lib/mysql

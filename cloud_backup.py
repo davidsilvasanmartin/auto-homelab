@@ -193,12 +193,12 @@ def get_config_from_env()->dict:
     load_dotenv()
     try :
         return {
-            'repository_url': os.environ['BACKUP_RESTIC_REPOSITORY'],
-            'b2_account_id': os.environ['BACKUP_B2_ACCOUNT_ID'],
-            'b2_account_key': os.environ['BACKUP_B2_ACCOUNT_KEY'],
-            'restic_password': os.environ['BACKUP_RESTIC_PASSWORD'],
-            'backup_path': os.environ['BACKUP_PATH'],
-            'retention_days': int(os.environ['BACKUP_RETENTION_DAYS']),
+            'repository_url': os.environ['HOMELAB_BACKUP_RESTIC_REPOSITORY'],
+            'b2_account_id': os.environ['HOMELAB_BACKUP_B2_ACCOUNT_ID'],
+            'b2_account_key': os.environ['HOMELAB_BACKUP_B2_ACCOUNT_KEY'],
+            'restic_password': os.environ['HOMELAB_BACKUP_RESTIC_PASSWORD'],
+            'backup_path': os.environ['HOMELAB_BACKUP_PATH'],
+            'retention_days': int(os.environ['HOMELAB_BACKUP_RETENTION_DAYS']),
         }
     except KeyError as e:
         raise ValueError(f"Missing required environment variable: {e}")
