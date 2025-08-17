@@ -1,4 +1,4 @@
-name: home
+name: homelab
 
 networks:
   homelab_network:
@@ -78,72 +78,72 @@ services:
   calibre:
     # See: https://github.com/crocodilestick/Calibre-Web-Automated
     image: crocodilestick/calibre-web-automated:V3.0.4
-    container_name: ${CALIBRE_CONTAINER_NAME}
+    container_name: ${HOMELAB_CALIBRE_CONTAINER_NAME}
     environment:
       PUID: 1000
       PGID: 1000
       # Edit to match your current timezone https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
       TZ: Europe/London
     volumes:
-      - ${CALIBRE_CONF_PATH}:/config
+      - ${HOMELAB_CALIBRE_CONF_PATH}:/config
       # This is an ingest dir, NOT a library one. Anything added here will be automatically added to your library according to the settings you have configured in CWA Settings page. All files placed here are REMOVED AFTER PROCESSING
-      - ${CALIBRE_INGEST_PATH}:/cwa-book-ingest
+      - ${HOMELAB_CALIBRE_INGEST_PATH}:/cwa-book-ingest
       # If you don't have an existing library, CWA will automatically create one at the bind provided here
-      - ${CALIBRE_LIBRARY_PATH}:/calibre-library
+      - ${HOMELAB_CALIBRE_LIBRARY_PATH}:/calibre-library
     networks:
       homelab_network:
-        ipv4_address: ${CALIBRE_IP}
+        ipv4_address: ${HOMELAB_CALIBRE_IP}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.calibre.rule=Host(`calibre.${HOMELAB_GENERAL_DOMAIN}`)"
       - "traefik.http.routers.calibre.entrypoints=websecure"
       - "traefik.http.routers.calibre.tls=true"
       - "traefik.http.routers.calibre.tls.certresolver=cloudflare"
-      - "traefik.http.services.calibre.loadbalancer.server.port=${CALIBRE_PORT_INTERNAL}"
+      - "traefik.http.services.calibre.loadbalancer.server.port=8083"
     restart: unless-stopped
 
   paperless-redis:
     # PAPERLESS-NGX: see https://github.com/paperless-ngx/paperless-ngx and the documentation
     # Copy-pasted (and improved) from https://github.com/paperless-ngx/paperless-ngx/blob/bd5f05ff2b59b3e1376ea05f079a2edd4e7b0f08/docker/compose/docker-compose.postgres.yml
     image: redis:8.0.1-bookworm
-    container_name: ${PAPERLESS_REDIS_CONTAINER_NAME}
+    container_name: ${HOMELAB_PAPERLESS_REDIS_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${PAPERLESS_REDIS_IP}
+        ipv4_address: ${HOMELAB_PAPERLESS_REDIS_IP}
     volumes:
-      - ${PAPERLESS_REDIS_PATH}:/data
+      - ${HOMELAB_PAPERLESS_REDIS_DATA_PATH}:/data
     restart: unless-stopped
   paperless-db:
     image: postgres:17.5-bookworm
-    container_name: ${PAPERLESS_DB_CONTAINER_NAME}
+    container_name: ${HOMELAB_PAPERLESS_DB_CONTAINER_NAME}
     networks:
       homelab_network:
-        ipv4_address: ${PAPERLESS_DB_IP}
+        ipv4_address: ${HOMELAB_PAPERLESS_DB_IP}
     volumes:
-      - ${PAPERLESS_DB_PATH}:/var/lib/postgresql/data
+      - ${HOMELAB_PAPERLESS_DB_DATA_PATH}:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${PAPERLESS_DB_DATABASE}
-      POSTGRES_USER: ${PAPERLESS_DB_USER}
-      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
+      POSTGRES_DB: ${HOMELAB_PAPERLESS_DB_DATABASE}
+      POSTGRES_USER: ${HOMELAB_PAPERLESS_DB_USER}
+      POSTGRES_PASSWORD: ${HOMELAB_PAPERLESS_DB_PASSWORD}
     restart: unless-stopped
   paperless:
     image: paperlessngx/paperless-ngx:2.16.1
-    container_name: ${PAPERLESS_WEB_CONTAINER_NAME}
+    container_name: ${HOMELAB_PAPERLESS_WEB_CONTAINER_NAME}
     depends_on:
       # NOTE: this is the NAME OF THE SERVICE, as defined in this file, and NOT THE NAME OF THE CONTAINER
       - paperless-db
       - paperless-redis
     networks:
       homelab_network:
-        ipv4_address: ${PAPERLESS_WEB_IP}
+        ipv4_address: ${HOMELAB_PAPERLESS_WEB_IP}
     volumes:
-      - ${PAPERLESS_WEB_DATA_PATH}:/usr/src/paperless/data # Originally it was NOT a local volume
-      - ${PAPERLESS_WEB_MEDIA_PATH}:/usr/src/paperless/media # Originally it was NOT a local volume
-      - ${PAPERLESS_WEB_EXPORT_PATH}:/usr/src/paperless/export
-      - ${PAPERLESS_WEB_CONSUME_PATH}:/usr/src/paperless/consume
+      - ${HOMELAB_PAPERLESS_WEB_DATA_PATH}:/usr/src/paperless/data # Originally it was NOT a local volume
+      - ${HOMELAB_PAPERLESS_WEB_MEDIA_PATH}:/usr/src/paperless/media # Originally it was NOT a local volume
+      - ${HOMELAB_PAPERLESS_WEB_EXPORT_PATH}:/usr/src/paperless/export
+      - ${HOMELAB_PAPERLESS_WEB_CONSUME_PATH}:/usr/src/paperless/consume
     environment:
-      PAPERLESS_REDIS: redis://${PAPERLESS_REDIS_CONTAINER_NAME}:6379
-      PAPERLESS_DBHOST: ${PAPERLESS_DB_CONTAINER_NAME}
+      PAPERLESS_REDIS: redis://${HOMELAB_PAPERLESS_REDIS_CONTAINER_NAME}:6379
+      PAPERLESS_DBHOST: ${HOMELAB_PAPERLESS_DB_CONTAINER_NAME}
       # Below is needed so paperless works with the reverse proxy. See https://github.com/paperless-ngx/paperless-ngx/issues/712
       PAPERLESS_URL: https://paperless.${HOMELAB_GENERAL_DOMAIN}
     restart: unless-stopped
@@ -153,41 +153,48 @@ services:
       - "traefik.http.routers.paperless.entrypoints=websecure"
       - "traefik.http.routers.paperless.tls=true"
       - "traefik.http.routers.paperless.tls.certresolver=cloudflare"
-      - "traefik.http.services.paperless.loadbalancer.server.port=${PAPERLESS_WEB_PORT_INTERNAL}"
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
 
   immich:
     # IMMICH: downloaded fromhttps://github.com/immich-app/immich/releases/download/v1.133.1/docker-compose.yml
     # TODO !!! Frontend shows "Server offline", it has to be something related to the reverse proxy
     # TODO regarding the above, see: https://github.com/immich-app/immich/issues/4611#issuecomment-1932479760
-    container_name: ${IMMICH_WEB_CONTAINER_NAME}
+    container_name: ${HOMELAB_IMMICH_WEB_CONTAINER_NAME}
     image: ghcr.io/immich-app/immich-server:v1.133.1
     # extends:
     #   file: hwaccel.transcoding.yml
     #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
-      - ${IMMICH_WEB_UPLOAD_LOCATION}:/usr/src/app/upload
+      - ${HOMELAB_IMMICH_WEB_UPLOAD_PATH}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     environment:
       # See all options at https://immich.app/docs/install/environment-variables/
-      DB_HOSTNAME: ${IMMICH_DB_IP}
-      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE}
-      DB_USERNAME: ${IMMICH_DB_USER}
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
-      REDIS_HOSTNAME: ${IMMICH_REDIS_CONTAINER_NAME}
+      DB_HOSTNAME: ${HOMELAB_IMMICH_DB_IP}
+      DB_DATABASE_NAME: ${HOMELAB_IMMICH_DB_DATABASE}
+      DB_USERNAME: ${HOMELAB_IMMICH_DB_USER}
+      DB_PASSWORD: ${HOMELAB_IMMICH_DB_PASSWORD}
+      REDIS_HOSTNAME: ${HOMELAB_IMMICH_REDIS_CONTAINER_NAME}
       # The location where your uploaded files are stored
-      UPLOAD_LOCATION: ${IMMICH_WEB_UPLOAD_LOCATION}
+      UPLOAD_LOCATION: ${HOMELAB_IMMICH_WEB_UPLOAD_PATH}
       # The location where your database files are stored. Network shares are not supported for the database
-      DB_DATA_LOCATION: ${IMMICH_DB_DATA_LOCATION}
-      TZ: ${IMMICH_TZ}
+      DB_DATA_LOCATION: ${HOMELAB_IMMICH_DB_DATA_PATH}
+      TZ: ${HOMELAB_GENERAL_TIMEZONE}
     networks:
       homelab_network:
-        ipv4_address: ${IMMICH_WEB_IP}
+        ipv4_address: ${HOMELAB_IMMICH_WEB_IP}
     depends_on:
       - immich-redis
       - immich-db
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.immich.rule=Host(`immich.${HOMELAB_GENERAL_DOMAIN}`)"
+      - "traefik.http.routers.immich.entrypoints=websecure"
+      - "traefik.http.routers.immich.tls=true"
+      - "traefik.http.routers.immich.tls.certresolver=cloudflare"
+      - "traefik.http.services.immich.loadbalancer.server.port=2283"
   immich-ml:
-    container_name: ${IMMICH_ML_CONTAINER_NAME}
+    container_name: ${HOMELAB_IMMICH_ML_CONTAINER_NAME}
     # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
     image: ghcr.io/immich-app/immich-machine-learning:v1.133.1
@@ -195,36 +202,36 @@ services:
     #   file: hwaccel.ml.yml
     #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
     volumes:
-      - ${IMMICH_ML_CACHE_DATA_LOCATION}:/cache
+      - ${HOMELAB_IMMICH_ML_CACHE_DATA_PATH}:/cache
     networks:
       homelab_network:
-        ipv4_address: ${IMMICH_ML_IP}
+        ipv4_address: ${HOMELAB_IMMICH_ML_IP}
     restart: unless-stopped
   immich-redis:
-    container_name: ${IMMICH_REDIS_CONTAINER_NAME}
+    container_name: ${HOMELAB_IMMICH_REDIS_CONTAINER_NAME}
     image: docker.io/valkey/valkey:8-bookworm@sha256:ff21bc0f8194dc9c105b769aeabf9585fea6a8ed649c0781caeac5cb3c247884
     volumes:
-      - ${IMMICH_REDIS_DATA_LOCATION}:/data
+      - ${HOMELAB_IMMICH_REDIS_DATA_LOCATION}:/data
     networks:
       homelab_network:
-        ipv4_address: ${IMMICH_REDIS_IP}
+        ipv4_address: ${HOMELAB_IMMICH_REDIS_IP}
     restart: unless-stopped
   immich-db:
-    container_name: ${IMMICH_DB_CONTAINER_NAME}
+    container_name: ${HOMELAB_IMMICH_DB_CONTAINER_NAME}
     image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0
     environment:
-      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
-      POSTGRES_USER: ${IMMICH_DB_USER}
-      POSTGRES_DB: ${IMMICH_DB_DATABASE}
-      TZ: ${IMMICH_TZ}
+      POSTGRES_PASSWORD: ${HOMELAB_IMMICH_DB_PASSWORD}
+      POSTGRES_USER: ${HOMELAB_IMMICH_DB_USER}
+      POSTGRES_DB: ${HOMELAB_IMMICH_DB_DATABASE}
+      TZ: ${HOMELAB_GENERAL_TIMEZONE}
       POSTGRES_INITDB_ARGS: '--data-checksums'
       # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
       # DB_STORAGE_TYPE: 'HDD'
     networks:
       homelab_network:
-        ipv4_address: ${IMMICH_DB_IP}
+        ipv4_address: ${HOMELAB_IMMICH_DB_IP}
     volumes:
-      - ${IMMICH_DB_DATA_LOCATION}:/var/lib/postgresql/data
+      - ${HOMELAB_IMMICH_DB_DATA_PATH}:/var/lib/postgresql/data
     restart: unless-stopped
 
   uptime:

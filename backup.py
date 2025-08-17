@@ -332,13 +332,13 @@ if __name__ == "__main__":
     # TODO need to somewhat check that necessary docker containers are running
     backup_operations: List[Backup] = [
         DirectoryBackup(
-            source_path=Path(get_required_env_var("CALIBRE_LIBRARY_PATH")),
+            source_path=Path(get_required_env_var("HOMELAB_CALIBRE_LIBRARY_PATH")),
             output_path=main_backup_dir / "calibre-web-automated-calibre-library"
         ),
         # NOTE: arguments of docker compose are SERVICE names, and NOT CONTAINER names
         DirectoryBackup(
             pre_command="docker compose stop calibre",
-            source_path=Path(get_required_env_var("CALIBRE_CONF_PATH")),
+            source_path=Path(get_required_env_var("HOMELAB_CALIBRE_CONF_PATH")),
             output_path=main_backup_dir / "calibre-web-automated-config",
             post_command="docker compose start calibre",
         ),
@@ -349,14 +349,14 @@ if __name__ == "__main__":
             output_path=main_backup_dir / "paperless-ngx-webserver-export",
         ),
         PostgreSQLBackup(
-            container_name=get_required_env_var("IMMICH_DB_CONTAINER_NAME"),
-            db_name=get_required_env_var("IMMICH_DB_DATABASE"),
-            username=get_required_env_var("IMMICH_DB_USER"),
-            password=get_required_env_var("IMMICH_DB_PASSWORD"),
+            container_name=get_required_env_var("HOMELAB_IMMICH_DB_CONTAINER_NAME"),
+            db_name=get_required_env_var("HOMELAB_IMMICH_DB_DATABASE"),
+            username=get_required_env_var("HOMELAB_IMMICH_DB_USER"),
+            password=get_required_env_var("HOMELAB_IMMICH_DB_PASSWORD"),
             output_path=main_backup_dir / "immich-db"
         ),
         DirectoryBackup(
-            source_path=Path(get_required_env_var("IMMICH_WEB_UPLOAD_LOCATION")),
+            source_path=Path(get_required_env_var("HOMELAB_IMMICH_WEB_UPLOAD_PATH")),
             output_path=main_backup_dir / "immich-library"
         ),
         MariaDbBackup(
