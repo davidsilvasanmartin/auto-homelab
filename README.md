@@ -134,12 +134,25 @@ If you want to maintain both local and cloud backups, you would need to:
 
 This would require modifications to the script or a separate workflow.
 
-# How to restore the services once we have restored the backup files
+# Disaster recovery: How to restore the services once we have restored the backup files
 
 This will depend on the service itself
 
-## Databases
+## Databases in general
 
 To see an example of how to restore a Postgres database see the official Immich
 docs https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore
 
+## Calibre
+
+Just copy the files over. Navigate to this project's root directory and run:
+
+```shell script
+source .env
+export RESTORED_HOMELAB_CALIBRE_CONF_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_CONFIG>
+export RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_LIBRARY>
+cp -r $RESTORED_HOMELAB_CALIBRE_CONF_PATH/* $HOMELAB_CALIBRE_CONF_PATH
+cp -r $RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH/* $HOMELAB_CALIBRE_LIBRARY_PATH
+```
+
+You will need to replace the placeholders above with the correct values.

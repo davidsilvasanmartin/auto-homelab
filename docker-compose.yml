@@ -1,4 +1,4 @@
-name: homelab
+name: auto-homelab
 
 networks:
   homelab_network:
