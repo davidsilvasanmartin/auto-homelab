@@ -143,11 +143,14 @@ This will depend on the service itself
 To see an example of how to restore a Postgres database see the official Immich
 docs https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore
 
+It is possible that database restoration processes fail if the name of the old database is different from the new one.
+That's why it's recommended to leave database names untouched. They are defined in the `env.schema.json` file.
+
 ## Calibre
 
 Just copy the files over. Navigate to this project's root directory and run:
 
-```shell script
+```shell
 source .env
 export RESTORED_HOMELAB_CALIBRE_CONF_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_CONFIG>
 export RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_LIBRARY>
@@ -156,3 +159,33 @@ cp -r $RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH/* $HOMELAB_CALIBRE_LIBRARY_PATH
 ```
 
 You will need to replace the placeholders above with the correct values.
+
+## Firefly III
+
+1. Make sure the Firefly database container is not running
+2. Run the following command:
+
+```shell
+source .env
+export RESTORED_HOMELAB_FIREFLY_DB_SQL=<PATH_TO_YOUR_RESTORED_FIREFLY_DB_SQL>
+docker compose up -d --no-deps firefly-db
+sleep 20 
+docker exec -i "${HOMELAB_FIREFLY_DB_CONTAINER_NAME}" mariadb -u"${HOMELAB_FIREFLY_DB_USER}" -p"${HOMELAB_FIREFLY_DB_PASSWORD}" "${HOMELAB_FIREFLY_DB_DATABASE}" < "${RESTORED_HOMELAB_FIREFLY_DB_SQL}"
+```
+
+You will need to replace the placeholder shown above. It should contain the absolute path to the SQL file 
+that contains the restored Firefly III database.
+
+### Notes
+
+- Notes about the shell command above:
+  - The service is started by its name. This name is hardcoded in the `docker-compose.yml` file, it's not the name of the container.
+  - The `sleep 15` command is needed because the database takes a while to start up.
+
+## Paperless-ngx
+
+TODO
+
+## Immich
+
+TODO
