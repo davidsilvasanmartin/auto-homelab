@@ -142,6 +142,7 @@ services:
       - ${HOMELAB_PAPERLESS_WEB_CONSUME_PATH}:/usr/src/paperless/consume
     environment:
       PAPERLESS_REDIS: redis://${HOMELAB_PAPERLESS_REDIS_CONTAINER_NAME}:6379
+      # TODO need to specify user:password, or the container will fail to start
       PAPERLESS_DBHOST: ${HOMELAB_PAPERLESS_DB_CONTAINER_NAME}
       # Below is needed so paperless works with the reverse proxy. See https://github.com/paperless-ngx/paperless-ngx/issues/712
       PAPERLESS_URL: https://paperless.${HOMELAB_GENERAL_DOMAIN}
