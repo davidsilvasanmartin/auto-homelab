@@ -4,7 +4,6 @@ import argparse
 import datetime
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
 
 
 class ResticToBackblazeBackup:
@@ -189,8 +188,6 @@ class ResticToBackblazeBackup:
 
 def get_config_from_env()->dict:
     """Get backup configuration from environment variables"""
-
-    load_dotenv()
     try :
         return {
             'repository_url': os.environ['HOMELAB_BACKUP_RESTIC_REPOSITORY'],

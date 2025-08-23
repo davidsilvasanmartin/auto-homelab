@@ -3,7 +3,7 @@ import io
 import unittest
 from contextlib import redirect_stdout
 
-from app.printer import Printer
+from scripts.printer import Printer
 
 
 class TestPrinterWrapLines(unittest.TestCase):

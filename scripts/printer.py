@@ -1,5 +1,5 @@
 import textwrap
-from app.validator import Validator
+from scripts.validator import Validator
 
 class Printer:
     """

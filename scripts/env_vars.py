@@ -8,8 +8,8 @@ import sys
 import secrets
 import string
 
-from app.printer import Printer
-from app.validator import Validator
+from scripts.printer import Printer
+from scripts.validator import Validator
 
 class EnvVar:
     name: str

@@ -3,7 +3,6 @@ import subprocess
 import shutil
 import os
 from typing import List, Optional, Union
-from dotenv import load_dotenv
 
 
 class CommandRunner:
@@ -314,9 +313,6 @@ def get_required_env_var(var: str) -> str:
         raise ValueError(f"Missing required environment variable: {e}")
 
 if __name__ == "__main__":
-    # Load environment variables from .env file
-    load_dotenv()
-
     main_backup_dir = Path(get_required_env_var("HOMELAB_BACKUP_PATH"))
     # Prepare the main backup directory
     prepare_backup_directory(main_backup_dir)

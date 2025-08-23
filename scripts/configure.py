@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any
 import time
 
-from app.printer import Printer
-from app.validator import Validator
-from app.env_vars import EnvVarsRoot, EnvVarsSection, EnvVar, get_value_for_type
+from scripts.printer import Printer
+from scripts.validator import Validator
+from scripts.env_vars import EnvVarsRoot, EnvVarsSection, EnvVar, get_value_for_type
 
-# Resolve paths relative to the repository root (parent of app/)
+# Resolve paths relative to the repository root (parent of scripts/)
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = _REPO_ROOT / "app" / "env.schema.json"
+SCHEMA_PATH = _REPO_ROOT / "scripts" / "env.schema.json"
 OUTPUT_ENV_PATH = _REPO_ROOT / f".env.generated.{int(time.time())}"
 
 def load_schema_raw(path: Path) -> dict:

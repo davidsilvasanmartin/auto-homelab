@@ -188,4 +188,7 @@ TODO
 
 ## Immich
 
-TODO
+
+# TODO
+
+- For working with Justfile, check https://cheatography.com/linux-china/cheat-sheets/justfile/
