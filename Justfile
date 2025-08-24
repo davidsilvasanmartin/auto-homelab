@@ -11,12 +11,20 @@ default:
 configure:
     {{uv}} run --env-file=.env -m scripts.configure
 
-# [🔧 APP] Starts all services
-start:
-    {{docker}} compose up -d
+# [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
+start service="":
+    if [ -n "{{service}}" ]; then {{docker}} compose up -d {{service}}; else {{docker}} compose up -d; fi
+
+# [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre`
+stop service="":
+    if [ -n "{{service}}" ]; then {{docker}} compose stop {{service}}; else {{docker}} compose stop; fi
 
 # [🔧 APP] Creates a local backup of all services' data
 backup-local:
+    {{uv}} run --env-file=.env -m scripts.backup
+
+# [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
+backup-cloud:
     {{uv}} run --env-file=.env -m scripts.backup
 
 # [🧪 DEV] Runs the tests of Python scripts
