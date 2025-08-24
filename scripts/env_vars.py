@@ -2,14 +2,15 @@
 Defines the Python classes for representing environment variables, and provides
 some utilities for working with them
 """
-from typing import List
-from pathlib import Path
-import sys
+
 import secrets
 import string
+import sys
+from pathlib import Path
 
 from scripts.printer import Printer
 from scripts.validator import Validator
+
 
 class EnvVar:
     name: str
@@ -17,7 +18,9 @@ class EnvVar:
     description: str | None
     value: str | None
 
-    def __init__(self, name: str, var_type: str, description: str | None = None, value: str | None = None) -> None:
+    def __init__(
+        self, name: str, var_type: str, description: str | None = None, value: str | None = None
+    ) -> None:
         self.name = name
         self.type = var_type
         self.description = description
@@ -33,15 +36,16 @@ class EnvVar:
             for line in Printer.wrap_lines(text=self.description, width=120):
                 parts.append(f"# {line}")
         if self.value is not None:
-                parts.append(Printer.format_dotenv_key_value(key=self.name, value=self.value))
+            parts.append(Printer.format_dotenv_key_value(key=self.name, value=self.value))
         else:
             parts.append(f"{self.name}=")
         return "\n".join(parts)
 
+
 class EnvVarsSection:
     name: str
     description: str | None
-    vars: List[EnvVar]
+    vars: list[EnvVar]
 
     def __init__(self, name: str, description: str) -> None:
         self.name = name
@@ -50,6 +54,7 @@ class EnvVarsSection:
 
     def add_var(self, var: EnvVar) -> None:
         self.vars.append(var)
+
 
 class EnvVarsRoot:
     prefix = "HOMELAB"
@@ -69,7 +74,8 @@ def _prompt(prompt_text: str) -> str | None:
         Printer.info(msg="\nAborted by user.")
         sys.exit(0)
 
-def get_value_for_type(var_name: str, var_description: str, var_type: str, var_value:str|None) -> str:
+
+def get_value_for_type(var_name: str, var_description: str, var_type: str, var_value: str | None) -> str:
     Printer.info(f"\n> {var_name}: {var_description or ''}")
 
     # Var types that DO NOT require user input
@@ -101,7 +107,9 @@ def get_value_for_type(var_name: str, var_description: str, var_type: str, var_v
                 charset_name = raw_set
                 length = parsed_len
             except Exception as e:
-                Printer.info(f"Invalid GENERATED spec '{var_value}' for {var_name} ({e}). Defaulting to ALPHA:32.")
+                Printer.info(
+                    f"Invalid GENERATED spec '{var_value}' for {var_name} ({e}). Defaulting to ALPHA:32."
+                )
 
             pool = charset_pools[charset_name]
             generated = "".join(secrets.choice(pool) for _ in range(length))
@@ -136,7 +144,9 @@ def get_value_for_type(var_name: str, var_description: str, var_type: str, var_v
                         if p.is_dir():
                             return str(p.resolve())
                         else:
-                            Printer.info(f"Path exists but is not a directory: {p}. Please enter a directory path.")
+                            Printer.info(
+                                f"Path exists but is not a directory: {p}. Please enter a directory path."
+                            )
                             continue
                     else:
                         # Attempt to create the directory

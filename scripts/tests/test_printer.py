@@ -2,6 +2,7 @@ import pytest
 
 from scripts.printer import Printer
 
+
 class TestPrinterWrapLines:
     def test_wrap_lines_none(self):
         assert Printer.wrap_lines(None) == [""]
@@ -14,7 +15,7 @@ class TestPrinterWrapLines:
         [
             ("short line", 120, ["short line"]),
             ("a" * 10, 10, ["a" * 10]),
-            ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 5, ["ABCDE","FGHIJ","KLMNO","PQRST","UVWXY","Z"]),
+            ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 5, ["ABCDE", "FGHIJ", "KLMNO", "PQRST", "UVWXY", "Z"]),
             ("x" * 130, 50, ["x" * 50, "x" * 50, "x" * 30]),
         ],
     )
@@ -54,6 +55,7 @@ class TestPrinterWrapLines:
             "Last",
         ]
 
+
 class TestPrinterInfo:
     def test_info_prints_wrapped_lines(self, capsys: pytest.CaptureFixture[str]):
         text = "This is a test string that will be wrapped appropriately to a given width."
@@ -73,14 +75,14 @@ class TestPrinterInfo:
         captured = capsys.readouterr()
         assert captured.out == "\n"
 
+
 class TestFormatDotenvKeyValue:
     def test_basic_key_value(self):
         assert Printer.format_dotenv_key_value("KEY", "VALUE") == 'KEY="VALUE"'
 
     def test_value_with_double_quotes_is_escaped(self):
         assert (
-            Printer.format_dotenv_key_value("GREETING", 'He said "hello"')
-            == 'GREETING="He said \\"hello\\""'
+            Printer.format_dotenv_key_value("GREETING", 'He said "hello"') == 'GREETING="He said \\"hello\\""'
         )
 
     def test_empty_string_value(self):
@@ -93,10 +95,7 @@ class TestFormatDotenvKeyValue:
         )
 
     def test_key_is_stripped(self):
-        assert (
-            Printer.format_dotenv_key_value("  TRIMMED_KEY  ", "v")
-            == 'TRIMMED_KEY="v"'
-        )
+        assert Printer.format_dotenv_key_value("  TRIMMED_KEY  ", "v") == 'TRIMMED_KEY="v"'
 
     def test_invalid_key_empty_string_raises(self):
         with pytest.raises(ValueError):
@@ -113,10 +112,7 @@ class TestFormatDotenvKeyValue:
         )
 
     def test_value_with_newline_preserved(self):
-        assert (
-            Printer.format_dotenv_key_value("MULTI", "line1\nline2")
-            == 'MULTI="line1\nline2"'
-        )
+        assert Printer.format_dotenv_key_value("MULTI", "line1\nline2") == 'MULTI="line1\nline2"'
 
     def test_non_string_value_is_stringified(self):
         assert (
