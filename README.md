@@ -86,6 +86,9 @@ just restore-paperless
 Notes:
 - Ensure a valid `.env` file exists in the project root before running the command.
 - You will be prompted for the path to your restored Paperless-ngx export data.
+- If you performed the backup using this project, the backed-up files will contain
+the username and password for the Paperless-ngx account. Use these credentias to
+log in after the restoration is complete.
 
 ### Immich
 
