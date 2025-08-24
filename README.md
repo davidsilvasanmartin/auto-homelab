@@ -178,9 +178,8 @@ that contains the restored Firefly III database.
 
 ### Notes
 
-- Notes about the shell command above:
-  - The service is started by its name. This name is hardcoded in the `docker-compose.yml` file, it's not the name of the container.
-  - The `sleep 15` command is needed because the database takes a while to start up.
+- The service is started by its name: `firefly-db`. This name is hardcoded in the `docker-compose.yml` file, it's not the name of the container.
+- The `sleep 15` command is needed because the database takes a while to start up.
 
 ## Paperless-ngx
 
@@ -188,4 +187,7 @@ TODO
 
 ## Immich
 
-TODO
+
+# TODO
+
+- For working with Justfile, check https://cheatography.com/linux-china/cheat-sheets/justfile/

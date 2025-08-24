@@ -1,0 +1,47 @@
+[project]
+name = "auto-homelab"
+version = "0.1.0"
+description = "Automated Homelab project"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "ruff>=0.12.10",
+]
+
+[tool.ruff]
+# Max line length for both the formatter and certain rules
+line-length = 110
+# Tell Ruff which Python syntax/features are allowed in this codebase
+target-version = "py313"
+include = [
+    # Only lint and format these
+    "scripts/**/*.py",
+]
+
+[tool.ruff.lint]
+# A focused, commonly used ruleset:
+# - E/F: pycodestyle/pyflakes (errors and logical issues)
+# - I: import sorting (isort)
+# - UP: pyupgrade (use modern Python features)
+# - B: flake8-bugbear (bug-prone patterns)
+# - C4: flake8-comprehensions (comprehension improvements)
+# - SIM: flake8-simplify (simpler idioms)
+# - N: pep8-naming (consistent naming)
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "N"]
+# Let the formatter control wrapping instead of enforcing E501 directly
+ignore = ["E501"]
+# Allow Ruff to auto-fix any rule it knows how to fix when you pass `--fix`
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+# Format code blocks inside docstrings
+docstring-code-format = true
+docstring-code-line-length = "dynamic"

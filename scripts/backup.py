@@ -1,9 +1,7 @@
-from pathlib import Path
-import subprocess
-import shutil
 import os
-from typing import List, Optional, Union
-from dotenv import load_dotenv
+import shutil
+import subprocess
+from pathlib import Path
 
 
 class CommandRunner:
@@ -36,6 +34,7 @@ class Backup:
     """
     Base class for all backup operations.
     """
+
     def __init__(self, output_path: Path):
         """
         Initialize backup configuration.
@@ -45,7 +44,7 @@ class Backup:
         """
         self.output_path = output_path
 
-    def run(self) -> Union[Path, None]:
+    def run(self) -> Path | None:
         """
         Execute the backup operation.
 
@@ -63,7 +62,13 @@ class Backup:
 
 
 class DirectoryBackup(Backup):
-    def __init__(self, source_path: Path, output_path: Path, pre_command: Optional[str] = None, post_command: Optional[str]=None):
+    def __init__(
+        self,
+        source_path: Path,
+        output_path: Path,
+        pre_command: str | None = None,
+        post_command: str | None = None,
+    ):
         """
         Initialize directory backup configuration. It copies the contents of source_path to target_dir.
 
@@ -116,14 +121,8 @@ class PostgreSQLBackup(Backup):
     """
     Class for backing up PostgreSQL databases using docker exec.
     """
-    def __init__(
-            self,
-            container_name: str,
-            db_name: str,
-            username: str,
-            password: str,
-            output_path: Path
-    ):
+
+    def __init__(self, container_name: str, db_name: str, username: str, password: str, output_path: Path):
         """
         Initialize PostgreSQL backup configuration.
 
@@ -155,7 +154,7 @@ class PostgreSQLBackup(Backup):
         # Construct the docker command
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f"\"PGPASSWORD={self.password} pg_dump --username {self.username} {self.db_name}\""
+            f'"PGPASSWORD={self.password} pg_dump --username {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
@@ -174,14 +173,8 @@ class MySQLBackup(Backup):
     """
     Class for backing up MySQL databases using docker exec.
     """
-    def __init__(
-            self,
-            container_name: str,
-            db_name: str,
-            username: str,
-            password: str,
-            output_path: Path
-    ):
+
+    def __init__(self, container_name: str, db_name: str, username: str, password: str, output_path: Path):
         """
         Initialize MySQL backup configuration.
 
@@ -213,7 +206,7 @@ class MySQLBackup(Backup):
         # Construct the docker command
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f"\"MYSQL_PWD={self.password} mysqldump --user {self.username} {self.db_name}\""
+            f'"MYSQL_PWD={self.password} mysqldump --user {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
@@ -227,19 +220,14 @@ class MySQLBackup(Backup):
             print(f"Error backing up database {self.db_name}: {e}")
             raise e
 
+
 class MariaDbBackup(Backup):
     """
     Class for backing up MariaDB databases using docker exec. It is very similar to the MySQLBackup class,
     but uses mariadb-dump instead of mysqldump.
     """
-    def __init__(
-            self,
-            container_name: str,
-            db_name: str,
-            username: str,
-            password: str,
-            output_path: Path
-    ):
+
+    def __init__(self, container_name: str, db_name: str, username: str, password: str, output_path: Path):
         """
         Initialize MariaDB backup configuration.
 
@@ -271,11 +259,13 @@ class MariaDbBackup(Backup):
         # Construct the docker command using mariadb-dump
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f"\"MYSQL_PWD={self.password} mariadb-dump --user {self.username} {self.db_name}\""
+            f'"MYSQL_PWD={self.password} mariadb-dump --user {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
-        print(f"Running backup command for MariaDB database {self.db_name} in container {self.container_name}")
+        print(
+            f"Running backup command for MariaDB database {self.db_name} in container {self.container_name}"
+        )
         try:
             CommandRunner.run(docker_command)
             print(f"Successfully backed up {self.db_name} to {backup_file}\n")
@@ -284,7 +274,6 @@ class MariaDbBackup(Backup):
         except subprocess.CalledProcessError as e:
             print(f"Error backing up MariaDB database {self.db_name}: {e}")
             raise e
-
 
 
 def prepare_backup_directory(output_path: Path):
@@ -306,27 +295,26 @@ def prepare_backup_directory(output_path: Path):
             raise e
     print(f"Successfully prepared directory {output_path}.\n")
 
+
 def get_required_env_var(var: str) -> str:
     """Get required environment variable"""
     try:
         return os.environ[var]
     except KeyError as e:
-        raise ValueError(f"Missing required environment variable: {e}")
+        raise ValueError(f"Missing required environment variable: {e}") from e
+
 
 if __name__ == "__main__":
-    # Load environment variables from .env file
-    load_dotenv()
-
     main_backup_dir = Path(get_required_env_var("HOMELAB_BACKUP_PATH"))
     # Prepare the main backup directory
     prepare_backup_directory(main_backup_dir)
 
     # Define the source directories and their target names using the new DirectoryBackup class
     # TODO need to somewhat check that necessary docker containers are running
-    backup_operations: List[Backup] = [
+    backup_operations: list[Backup] = [
         DirectoryBackup(
             source_path=Path(get_required_env_var("HOMELAB_CALIBRE_LIBRARY_PATH")),
-            output_path=main_backup_dir / "calibre-web-automated-calibre-library"
+            output_path=main_backup_dir / "calibre-web-automated-calibre-library",
         ),
         # NOTE: arguments of docker compose are SERVICE names, and NOT CONTAINER names
         DirectoryBackup(
@@ -345,19 +333,19 @@ if __name__ == "__main__":
             db_name=get_required_env_var("HOMELAB_IMMICH_DB_DATABASE"),
             username=get_required_env_var("HOMELAB_IMMICH_DB_USER"),
             password=get_required_env_var("HOMELAB_IMMICH_DB_PASSWORD"),
-            output_path=main_backup_dir / "immich-db"
+            output_path=main_backup_dir / "immich-db",
         ),
         DirectoryBackup(
             source_path=Path(get_required_env_var("HOMELAB_IMMICH_WEB_UPLOAD_PATH")),
-            output_path=main_backup_dir / "immich-library"
+            output_path=main_backup_dir / "immich-library",
         ),
         MariaDbBackup(
             container_name=get_required_env_var("HOMELAB_FIREFLY_DB_CONTAINER_NAME"),
             db_name=get_required_env_var("HOMELAB_FIREFLY_DB_DATABASE"),
             username=get_required_env_var("HOMELAB_FIREFLY_DB_USER"),
             password=get_required_env_var("HOMELAB_FIREFLY_DB_PASSWORD"),
-            output_path=main_backup_dir / "firefly-db"
-        )
+            output_path=main_backup_dir / "firefly-db",
+        ),
     ]
 
     # Run all backup operations

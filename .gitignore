@@ -1,7 +1,16 @@
 .idea/
-backup/
 home.iml
 *.DS_Store
 .env*
 test-data/
-./.venv/
+
+# Virtual environments
+.venv
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info

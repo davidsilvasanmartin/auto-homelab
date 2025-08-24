@@ -1,6 +1,7 @@
 import ipaddress
 from typing import Any
 
+
 class Validator:
     """
     Utility class for validating values
@@ -35,8 +36,8 @@ class Validator:
         """
         try:
             ipaddress.ip_address(value)
-        except ValueError:
-            raise ValueError(f"{name} must be a valid IPv4 or IPv6 address.")
+        except ValueError as e:
+            raise ValueError(f"{name} must be a valid IPv4 or IPv6 address.") from e
 
     @staticmethod
     def validate_dict(value: Any, name: str):

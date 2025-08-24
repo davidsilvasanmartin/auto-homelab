@@ -1,5 +1,7 @@
 import textwrap
-from app.validator import Validator
+
+from scripts.validator import Validator
+
 
 class Printer:
     """
@@ -51,5 +53,5 @@ class Printer:
         """
         Validator.validate_string(key, "key")
         value_str = "" if value is None else str(value)
-        value_str = value_str.replace('"', r'\"')
+        value_str = value_str.replace('"', r"\"")
         return f'{key.strip()}="{value_str}"'
