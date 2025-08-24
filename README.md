@@ -27,17 +27,26 @@ these are for my own reference, so that I can remember how I did something.
 
 ## Disaster recovery: How to restore the services once we have restored the backup files
 
-This will depend on the service itself
+### Important notes
 
-### Databases in general
+#### ALL EXISTING DATA WILL BE LOST
+Recovery scripts assume that you want to destroy a service instance and rebuild it from the ground up.
+Therefore, they will remove all existing data before restoring the backup files.
 
-To see an example of how to restore a Postgres database see the official Immich
-docs https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore
+#### Directory permissions
+For some reason Docker changes the ownership and permissions of some directories,
+so it is possible that this script fails due to that. If this happens, set yourself manually (chown)
+as the owner of the problematic files
+
+### Restoring databases in general
+
+To see an example of how to restore a Postgres database, [see the official Immich
+docs](https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore).
 
 It is possible that database restoration processes fail if the name of the old database is different from the new one.
 That's why it's recommended to leave database names untouched. They are defined in the `env.schema.json` file.
 
-### Calibre
+### Restoring Calibre
 
 Just copy the files over. Navigate to this project's root directory and run:
 
@@ -51,7 +60,7 @@ cp -r $RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH/* $HOMELAB_CALIBRE_LIBRARY_PATH
 
 You will need to replace the placeholders above (`<path_to...>`) with the correct values.
 
-### Firefly III
+### Restoring Firefly III
 
 1. Make sure the Firefly database container is not running
 2. Run the following command:
@@ -72,7 +81,7 @@ that contains the restored Firefly III database.
 - The service is started by its name: `firefly-db`. This name is hardcoded in the `docker-compose.yml` file, it's not the name of the container.
 - The `sleep 15` command is needed because the database takes a while to start up.
 
-### Paperless-ngx
+### Restoring Paperless-ngx
 
 The backup uses the [document exporter](https://docs.paperless-ngx.com/administration/#exporter) tool,
 hence the recovery script uses the [document importer](https://docs.paperless-ngx.com/administration/#importer) tool.
@@ -90,6 +99,12 @@ Notes:
 the username and password for the Paperless-ngx account. Use these credentias to
 log in after the restoration is complete.
 
-### Immich
+### Restoring Immich
 
-TODO
+See [Immich docs on restoring data](https://immich.app/docs/administration/backup-and-restore/).
+
+The restoration is performed by running the following command:
+
+```shell
+just restore-immich
+```

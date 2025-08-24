@@ -31,6 +31,10 @@ backup-cloud:
 restore-paperless:
     ./scripts-shell/restore_paperless.sh
 
+# [🔧 APP] Restores the immich data
+restore-immich:
+    ./scripts-shell/restore_immich.sh
+
 # [🧪 DEV] Runs the tests of Python scripts
 dev-test:
     {{uv}} run --env-file=.env -m pytest scripts/tests
