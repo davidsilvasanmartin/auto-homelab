@@ -27,6 +27,10 @@ backup-local:
 backup-cloud:
     {{uv}} run --env-file=.env -m scripts.backup
 
+# [🔧 APP] Restores the paperless-ngx data
+restore-paperless:
+    ./scripts-shell/restore_paperless.sh
+
 # [🧪 DEV] Runs the tests of Python scripts
 dev-test:
     {{uv}} run --env-file=.env -m pytest scripts/tests

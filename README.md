@@ -21,7 +21,8 @@ TODO... This section is under construction ...
 - `documentation/`: in this directory you will find several articles documenting different aspects of the project. Some of
 these are for my own reference, so that I can remember how I did something.
 - `files/`: contains configuration files and scripts for various services
-- `scripts/`: contains Python scripts that give this project most of its functionality
+- `scripts/`: contains Python scripts that give this project some of its functionality
+- `scripts-shell/`: contains shell scripts that provide some extra functionalities
 - `scripts/env.schema.json`: this file contains the schema of the environment variables that are used by the app
 
 ## Disaster recovery: How to restore the services once we have restored the backup files
@@ -73,7 +74,18 @@ that contains the restored Firefly III database.
 
 ### Paperless-ngx
 
-TODO
+The backup uses the [document exporter](https://docs.paperless-ngx.com/administration/#exporter) tool,
+hence the recovery script uses the [document importer](https://docs.paperless-ngx.com/administration/#importer) tool.
+
+The restoration is performed by running the following command:
+
+```shell
+just restore-paperless
+```
+
+Notes:
+- Ensure a valid `.env` file exists in the project root before running the command.
+- You will be prompted for the path to your restored Paperless-ngx export data.
 
 ### Immich
 
