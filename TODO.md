@@ -1,15 +1,13 @@
 # TODO
 
-- Migrate this project into a public one, `auto-homelab` or `auto-homelab-stack`
 - REMOVE ALL HEALTH CHECKS when Uptime Kuma is completely set up
-- ^^ UPDATE: NO !!! I believe health checks arae used by `depends_on` . Otherwise
+- ^^ UPDATE on previous point: NO !!! I believe health checks arae used by `depends_on` . Otherwise
   when we do `docker compose up` , many services crash because they can't connect to the services they depend on.
   If those services they depend on had health checks, all should work fine.
-- In AdGuardHome.yaml we have hard-coded unbound's IP address. We should use environment vars instead.
-- [WIP] Pass credentials from env variables
+- [DONE] Pass credentials from env variables
     - It may be better to just create the credentials when the services start up
-- [WIP] One big .env file with env vars for all services (properly namespaced)
-- [WIP] Volumes should be configurable. These configs are for testing, real configs will be network volumes
+- [DONE] One big .env file with env vars for all services (properly namespaced)
+- [DONE] Volumes should be configurable. These configs are for testing, real configs will be network volumes
 - [DONE] Use the DNS server to give names to different services, e.g. adguard.home, calibre.home, and so on...
 - Extra services
     - Probably having a few mdBook is better for my own documentation than Bookstack

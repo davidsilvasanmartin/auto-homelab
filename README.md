@@ -152,13 +152,13 @@ Just copy the files over. Navigate to this project's root directory and run:
 
 ```shell
 source .env
-export RESTORED_HOMELAB_CALIBRE_CONF_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_CONFIG>
-export RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH=<PATH_TO_YOUR_RESTORED_CALIBRE_LIBRARY>
+export RESTORED_HOMELAB_CALIBRE_CONF_PATH=<path_to_your_restored_calibre_config>
+export RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH=<path_to_your_restored_calibre_library>
 cp -r $RESTORED_HOMELAB_CALIBRE_CONF_PATH/* $HOMELAB_CALIBRE_CONF_PATH
 cp -r $RESTORED_HOMELAB_CALIBRE_LIBRARY_PATH/* $HOMELAB_CALIBRE_LIBRARY_PATH
 ```
 
-You will need to replace the placeholders above with the correct values.
+You will need to replace the placeholders above (`<path_to...>`) with the correct values.
 
 ## Firefly III
 
@@ -167,13 +167,13 @@ You will need to replace the placeholders above with the correct values.
 
 ```shell
 source .env
-export RESTORED_HOMELAB_FIREFLY_DB_SQL=<PATH_TO_YOUR_RESTORED_FIREFLY_DB_SQL>
+export RESTORED_HOMELAB_FIREFLY_DB_SQL=<path_to_your_restored_firefly_db_sql>
 docker compose up -d --no-deps firefly-db
 sleep 20 
 docker exec -i "${HOMELAB_FIREFLY_DB_CONTAINER_NAME}" mariadb -u"${HOMELAB_FIREFLY_DB_USER}" -p"${HOMELAB_FIREFLY_DB_PASSWORD}" "${HOMELAB_FIREFLY_DB_DATABASE}" < "${RESTORED_HOMELAB_FIREFLY_DB_SQL}"
 ```
 
-You will need to replace the placeholder shown above. It should contain the absolute path to the SQL file 
+You will need to replace the placeholder shown above (`<path_to...>`). It should contain the absolute path to the SQL file 
 that contains the restored Firefly III database.
 
 ### Notes
