@@ -60,3 +60,7 @@ dev-fmt:
 # [🧪 DEV] Explains a linting rule. Example: `just dev-explain F401`
 dev-explain linting-rule:
     {{uv}} run ruff rule {{linting-rule}}
+
+# [📊 STAT] Count lines of code (optional dir argument, default "."). Example: `just stat-loc` or `just stat-loc scripts`
+stat-loc dir=".":
+    {{uv}} run -m scripts.loc {{dir}}
