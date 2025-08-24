@@ -13,4 +13,3 @@ be left unchanged.
 ### Backup documentation
 - https://docs.paperless-ngx.com/administration/#backup
 - https://docs.paperless-ngx.com/administration/#exporter
-
