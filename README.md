@@ -8,8 +8,14 @@
 
 ## How to use
 
-You can get a list of all the available commands, along with a small explanation, by running `just`. Commands
-prefixed with `[🔧APP]` are 
+You can get a list of all the available commands, along with a small explanation, by running:
+```shell
+just
+```
+
+- Commands whose documentation starts with `[🔧APP]` provide the functionalities of this project.
+- Commands whose documentation starts with `[🧪DEV]` are for development purposes only. You should
+not use them unless you are contributing to this project.
 
 TODO... This section is under construction ...
 
