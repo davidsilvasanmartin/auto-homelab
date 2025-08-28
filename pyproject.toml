@@ -8,6 +8,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "pyright[nodejs]>=1.1.404",
     "pytest>=8.4.1",
     "ruff>=0.12.10",
 ]
@@ -45,3 +46,19 @@ line-ending = "lf"
 # Format code blocks inside docstrings
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
+
+[tool.pyright]
+# Target Python version and general mode
+pythonVersion = "3.13"
+typeCheckingMode = "strict"  # Move to "strict" if possible, maybe on a per-module basis
+# Project layout
+include = ["scripts"]
+exclude = ["**/__pycache__", ".venv", "venv", "build", "dist"]
+# Popular diagnostics
+reportMissingImports = "warning"  # don’t fail hard on optional deps
+reportMissingTypeStubs = "none"   # avoid noise for 3rd‑party libs without stubs
+useLibraryCodeForTypes = true     # infer types from library code where possible
+# Sensible inference tweaks
+strictListInference = true
+strictDictionaryInference = true
+deprecateTypingAliases = true
