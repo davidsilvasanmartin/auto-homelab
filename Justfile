@@ -9,7 +9,7 @@ default:
 
 # [🔧 APP] Interactive script that creates a `.env.<timestamp>` file
 configure:
-    {{uv}} run --env-file=.env -m scripts.configure
+    {{uv}} run --env-file=.env -m scripts.configuration.configure
 
 # [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
 start service="":
@@ -25,7 +25,7 @@ backup-local:
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:
-    {{uv}} run --env-file=.env -m scripts.backup
+    {{uv}} run --env-file=.env -m scripts.cloud_backup
 
 # [🔧 APP] Restores the paperless-ngx data
 restore-paperless:
@@ -53,8 +53,12 @@ dev-lint:
     {{uv}} run ruff check . --fix
 
 # [🧪 DEV] Checks that files are formatted correctly
-dev-fmt-check:
+dev-check-fmt:
     {{uv}} run ruff format . --check
+
+# [🧪 DEV] Checks that all Python code has the correct types
+dev-check-types:
+    {{uv}} run pyright .
 
 # [🧪 DEV] Format all files
 dev-fmt:

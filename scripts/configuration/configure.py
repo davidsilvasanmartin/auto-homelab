@@ -10,35 +10,45 @@ from typing import NotRequired, TypedDict
 
 from jsonschema import validate
 
-from scripts.env_vars import (
+from scripts.configuration.env_vars import (
     EnvVar,
     EnvVarsRoot,
     EnvVarsSection,
-    TypeHandlerRegistry,
     get_value_for_type,
 )
 from scripts.printer import Printer
 
-# Resolve paths relative to the repository root (parent of scripts/)
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+# Resolve paths relative to the repository root
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_ENV_PATH = _REPO_ROOT / f".env.generated.{int(time.time())}"
 
+
 class ConfigVariable(TypedDict):
+    """Configuration for a single environment variable"""
+
     name: str
     type: str
     description: str
     value: NotRequired[str]
 
+
 class ConfigSection(TypedDict):
+    """Section of the configuration file that holds configuration for multiple environment variables"""
+
     name: str
     description: str
     variables: list[ConfigVariable]
 
+
 class ConfigRoot(TypedDict):
+    """Root object that holds the configuration data of all environment variables"""
+
     prefix: str
     sections: list[ConfigSection]
 
-def validate_and_load_config() -> ConfigRoot:
+
+def load_config_and_validate() -> ConfigRoot:
+    """Loads the configuration file and validates it against the schema"""
     conf_file_path = _REPO_ROOT / "scripts" / "env.config.json"
     conf_schema_file_path = _REPO_ROOT / "scripts" / "env.config.schema.json"
     if not conf_file_path.exists() or not conf_file_path.is_file():
@@ -46,11 +56,15 @@ def validate_and_load_config() -> ConfigRoot:
     if not conf_schema_file_path.exists() or not conf_schema_file_path.is_file():
         raise ValueError(f"Schema of config file not found at {conf_schema_file_path.resolve()}")
 
-    with conf_file_path.open("r", encoding="utf-8") as conf_file, conf_schema_file_path.open("r", encoding="utf-8") as conf_schema_file:
-            json_config = json.load(conf_file)
-            json_config_schema = json.load(conf_schema_file)
-            validate(instance=json_config, schema=json_config_schema)
-            return json_config
+    with (
+        conf_file_path.open("r", encoding="utf-8") as conf_file,
+        conf_schema_file_path.open("r", encoding="utf-8") as conf_schema_file,
+    ):
+        json_config = json.load(conf_file)
+        json_config_schema = json.load(conf_schema_file)
+        validate(instance=json_config, schema=json_config_schema)
+        return json_config
+
 
 # -----------------------------
 # Builder: dotenv content
@@ -58,11 +72,26 @@ def validate_and_load_config() -> ConfigRoot:
 
 
 class DotenvBuilder:
+    """Builds a .env file from the parsed configuration"""
+
     def __init__(self) -> None:
         self._lines: list[str] = []
         self.total_vars = 0
 
+    def _add_var(self, var: EnvVar) -> None:
+        """Adds a single variable to the .env file"""
+        for line in Printer.wrap_lines(text=var.description, width=120):
+            self._lines.append(f"# {line}")
+        if var.value is not None:
+            self._lines.append(Printer.format_dotenv_key_value(key=var.name, value=var.value))
+        else:
+            self._lines.append(f"{var.name}=")
+        self.total_vars += 1
+
     def add_section(self, section: EnvVarsSection) -> None:
+        """
+        Adds a section to the .env file. Requires that the input section is complete and already validated
+        """
         self._lines.append("#" * 120)
         self._lines.append(f"# {section.name}")
         if section.description:
@@ -70,8 +99,7 @@ class DotenvBuilder:
         self._lines.append("#" * 120)
 
         for var in section.vars:
-            self._lines.append(var.get_dotenv_value())
-            self.total_vars += 1
+            self._add_var(var)
 
         self._lines.append("")
 
@@ -84,11 +112,11 @@ class DotenvBuilder:
 # -----------------------------
 
 
-def parse_config(config_root: ConfigRoot,*, registry: TypeHandlerRegistry | None = None) -> EnvVarsRoot:
+def parse_config_and_get_user_input(config_root: ConfigRoot) -> EnvVarsRoot:
     root = EnvVarsRoot(prefix=config_root["prefix"])
 
     for config_section in config_root["sections"]:
-        section_full_name = f"{root.prefix}_{config_section["name"]}"
+        section_full_name = f"{root.prefix}_{config_section['name']}"
         section = EnvVarsSection(name=section_full_name, description=config_section["description"])
         root.add_section(section)
 
@@ -99,7 +127,7 @@ def parse_config(config_root: ConfigRoot,*, registry: TypeHandlerRegistry | None
 
         for config_var in config_section["variables"]:
             var = EnvVar(
-                name=f"{section.name}_{config_var["name"]}",
+                name=f"{section.name}_{config_var['name']}",
                 type=config_var["type"],
                 description=config_var["description"],
                 value=config_var.get("value", None),
@@ -111,7 +139,6 @@ def parse_config(config_root: ConfigRoot,*, registry: TypeHandlerRegistry | None
                 var_description=var.description,
                 var_type=var.type,
                 var_value=var.value,
-                registry=registry,
             )
             var.set_value(value)
 
@@ -119,11 +146,11 @@ def parse_config(config_root: ConfigRoot,*, registry: TypeHandlerRegistry | None
 
 
 def main() -> None:
-    config_root = validate_and_load_config()
-    schema: EnvVarsRoot = parse_config(config_root)
+    config_root = load_config_and_validate()
+    env_vars_root: EnvVarsRoot = parse_config_and_get_user_input(config_root)
 
     builder = DotenvBuilder()
-    for section in schema.sections:
+    for section in env_vars_root.sections:
         builder.add_section(section)
 
     content = builder.build()

@@ -22,23 +22,11 @@ from scripts.validator import Validator
 class EnvVar:
     name: str
     type: str
-    description: str | None = None
+    description: str
     value: str | None = None
 
     def set_value(self, value: str) -> None:
         self.value = value.strip()
-
-    def get_dotenv_value(self) -> str:
-        """Return the value to be written to .env"""
-        parts: list[str] = []
-        if self.description is not None:
-            for line in Printer.wrap_lines(text=self.description, width=120):
-                parts.append(f"# {line}")
-        if self.value is not None:
-            parts.append(Printer.format_dotenv_key_value(key=self.name, value=self.value))
-        else:
-            parts.append(f"{self.name}=")
-        return "\n".join(parts)
 
 
 @dataclass
@@ -218,19 +206,15 @@ _default_registry.register("STRING", StringStrategy())
 _default_registry.register("PATH", PathStrategy())
 
 
-# Backwards compatible function name. Now delegates to Strategy via the registry (Factory).
 def get_value_for_type(
     var_name: str,
-    var_description: str | None,
+    var_description: str,
     var_type: str,
     var_value: str | None,
-    *,
-    registry: TypeHandlerRegistry | None = None,
 ) -> str:
     """
     Acquire a value for a variable by delegating to the appropriate type strategy.
     """
-    registry = registry or _default_registry
     var = EnvVar(name=var_name, type=var_type, description=var_description, value=var_value)
-    strategy = registry.get(var_type)
+    strategy = _default_registry.get(var_type)
     return strategy.acquire(var=var, default_spec=var_value)
