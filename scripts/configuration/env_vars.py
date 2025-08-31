@@ -76,6 +76,8 @@ class VarTypeStrategy(Protocol):
 
 class ConstantStrategy:
     def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
+        # TODO we are always printing the following line, consider abstracting this away from particular implementations
+        Printer.info(f"\n> {var.name}: {var.description}")
         Validator.validate_string_or_none(value=default_spec, name=f"Variable '{var.name}' value")
         Printer.info(f"Defaulting to: {default_spec}")
         return default_spec or ""
@@ -93,7 +95,7 @@ class GeneratedStrategy:
     }
 
     def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description or ''}")
+        Printer.info(f"\n> {var.name}: {var.description}")
         charset_name = "ALPHA"
         length = 32
 
@@ -123,7 +125,7 @@ class GeneratedStrategy:
 
 class IpStrategy:
     def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description or ''}")
+        Printer.info(f"\n> {var.name}: {var.description}")
         while True:
             user_val = _prompt(f"Enter value for {var.name} (IP): ")
             try:
@@ -135,7 +137,7 @@ class IpStrategy:
 
 class StringStrategy:
     def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description or ''}")
+        Printer.info(f"\n> {var.name}: {var.description}")
         while True:
             user_val = _prompt(f"Enter value for {var.name} (STRING): ")
             try:
@@ -147,7 +149,7 @@ class StringStrategy:
 
 class PathStrategy:
     def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description or ''}")
+        Printer.info(f"\n> {var.name}: {var.description}")
         while True:
             user_val = _prompt(f"Enter value for {var.name} (PATH): ")
             # Ensure it's a non-empty string first

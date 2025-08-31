@@ -2,9 +2,49 @@
 
 ## Prerequisites
 
+### Software
+
+You will need the following software installed on your computer:
+
 - [Docker](https://www.docker.com/get-started/)
 - [Just](https://github.com/casey/just)
 - [uv](https://github.com/astral-sh/uv)
+- [restic](https://restic.readthedocs.io/en/stable/020_installation.html)
+
+### A CloudFlare domain
+
+You need to purchase a public domain from CloudFlare. Say you purchased the domain `whatever.dev`. When you login to your
+cloudflare dashboard, you will see the following:
+
+![CloudFlare dashboard](./documentation/screenshots/cloudflare-dashboard.jpg)
+
+You need to go to your Profile, section "User API Tokens", and create an "Edit Zone DNS" token. Make sure the token
+only applies to the domain you want to use for this homelab.
+
+![CloudFlare API token](./documentation/screenshots/cloudflare-api-tokens.jpg)
+
+You will need to provide the token's value when you are asked for the `HOMELAB_TRAEFIK_CLOUDFLARE_API_TOKEN` variable.
+
+### A Backblaze B2 bucket
+
+Open a Backblaze B2 account and create a bucket:
+
+![Backblaze B2 bucket](./documentation/screenshots/backblaze-b2-buckets.jpg)
+
+You need to use the bucket's ID (`c0..` on the screenshot) when you are asked for the
+`HOMELAB_BACKUP_RESTIC_REPOSITORY` variable. This variable should contain the following:
+```
+b2:/<bucket_id>:<directory_inside_bucket>/
+```
+
+Then, go to Application Keys and create a new key that gives write access to the bucket:
+
+![Backblaze application keys](./documentation/screenshots/backblaze-application-keys.jpg)
+
+From this page you will need the following data:
+- When you are asked for the `HOMELAB_BACKUP_B2_KEY_ID` variable, provide the `keyID` shown on the screenshot
+- When you are asked for the `HOMELAB_BACKUP_B2_APPLICATION_KEY` variable, provide the `applicationKey` shown on the
+screenshot. This key is only shown once, so make sure you save it somewhere safe.
 
 ## How to use
 
@@ -19,7 +59,28 @@ not use them unless you are contributing to this project.
 
 TODO... This section is under construction ...
 
-## Project structure
+### Create the environment variables file
+
+TODO ...
+
+### ⚠️🚨⚠️ WARNING: Save the following variables on an alternative backup location ⚠️🚨⚠️
+
+You should **save the variables below on an alernative backup location**. My preference would be saving them in a password
+manager such as Bitwarden.
+
+- **`HOMELAB_BACKUP_RESTIC`**: It is **VERY IMPORTANT** to save this variable. If you lose it, you will not be able to decrypt
+the backup files, so they will be useless.
+- **The web passwords of all the services**: Except for unusual cases like Adguard, you will create a password for each
+service through its web interface, the first time you access it. These passwords end up being stored in databases.
+And those databases are saved to the backup in B2. When you restore a service, you will need to provide the old
+password. Therefore, you should save the web passwords in a password manager.
+
+Of course, you should already be saving in a password manager some of the secrets you have been asked for when
+configuring the homelab, such as:
+- `HOMELAB_TRAEFIK_CLOUDFLARE_API_TOKEN`
+- `HOMELAB_BACKUP_B2_APPLICATION_KEY`
+
+## Project structure - TODO move to CONTRIBUTING.md
 
 - `Justfile`: contains all the commands that are used to run the app, and to develop new features for the app
 - `docker-compose.yml`: contains the definition of all the services the homelab is composed of
@@ -29,7 +90,7 @@ these are for my own reference, so that I can remember how I did something.
 - `files/`: contains configuration files and scripts for various services
 - `scripts/`: contains Python scripts that give this project some of its functionality
 - `scripts-shell/`: contains shell scripts that provide some extra functionalities
-- `scripts/env.config.json`: this file contains the schema of the environment variables that are used by the app
+- `scripts/configuration/env.config.json`: this file contains the schema of the environment variables that are used by the app
 
 ## Disaster recovery: How to restore the services once we have restored the backup files
 
@@ -43,14 +104,6 @@ Therefore, they will remove all existing data before restoring the backup files.
 For some reason Docker changes the ownership and permissions of some directories,
 so it is possible that this script fails due to that. If this happens, set yourself manually (chown)
 as the owner of the problematic files
-
-### Restoring databases in general
-
-To see an example of how to restore a Postgres database, [see the official Immich
-docs](https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore).
-
-It is possible that database restoration processes fail if the name of the old database is different from the new one.
-That's why it's recommended to leave database names untouched. They are defined in the `env.config.json` file.
 
 ### Restoring Calibre
 

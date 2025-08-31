@@ -49,8 +49,8 @@ class ConfigRoot(TypedDict):
 
 def load_config_and_validate() -> ConfigRoot:
     """Loads the configuration file and validates it against the schema"""
-    conf_file_path = _REPO_ROOT / "scripts" / "env.config.json"
-    conf_schema_file_path = _REPO_ROOT / "scripts" / "env.config.schema.json"
+    conf_file_path = _REPO_ROOT / "scripts" / "configuration" / "env.config.json"
+    conf_schema_file_path = _REPO_ROOT / "scripts" / "configuration" / "env.config.schema.json"
     if not conf_file_path.exists() or not conf_file_path.is_file():
         raise ValueError(f"Config file not found at {conf_file_path.resolve()}")
     if not conf_schema_file_path.exists() or not conf_schema_file_path.is_file():

@@ -5,6 +5,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+"""
+Script for backing up files to Backblaze B2 using restic
+
+Useful documentation:
+    - https://www.backblaze.com/docs/cloud-storage-integrate-restic-with-backblaze-b2#create-an-application-key
+    
+    
+    
+    
+TODO !!!! TEST
+
+"""
+
 
 class ResticToBackblazeBackup:
     """
@@ -15,8 +28,8 @@ class ResticToBackblazeBackup:
         self,
         backup_path: str,
         repository_url: str,
-        b2_account_id: str,
-        b2_account_key: str,
+        b2_key_id: str,
+        b2_application_key: str,
         restic_password: str,
         retention_days: int,
     ):
@@ -26,15 +39,15 @@ class ResticToBackblazeBackup:
         Args:
             backup_path (str): Path to the directory to backup
             repository_url (str): Restic repository URL (B2 bucket path)
-            b2_account_id (str): Backblaze B2 Account ID
-            b2_account_key (str): Backblaze B2 Account Key
+            b2_key_id (str): Backblaze B2 Key ID
+            b2_application_key (str): Backblaze B2 Application Key
             restic_password (str): Password for the restic repository
             retention_days (int): Number of days to keep backups
         """
         self.backup_path = Path(backup_path).resolve()
         self.repository = repository_url
-        self.b2_account_id = b2_account_id
-        self.b2_account_key = b2_account_key
+        self.b2_key_id = b2_key_id
+        self.b2_application_key = b2_application_key
         self.restic_password = restic_password
         self.retention_days = retention_days
 
@@ -44,8 +57,8 @@ class ResticToBackblazeBackup:
         # Set environment variables for restic
         self.env = os.environ.copy()
         self.env["RESTIC_REPOSITORY"] = self.repository
-        self.env["B2_ACCOUNT_ID"] = self.b2_account_id
-        self.env["B2_ACCOUNT_KEY"] = self.b2_account_key
+        self.env["AWS_ACCESS_KEY_ID"] = self.b2_key_id
+        self.env["AWS_SECRET_ACCESS_KEY"] = self.b2_application_key
         self.env["RESTIC_PASSWORD"] = self.restic_password
 
     def _validate_config(self):
@@ -53,10 +66,10 @@ class ResticToBackblazeBackup:
         missing_params = []
         if not self.repository:
             missing_params.append("repository_url")
-        if not self.b2_account_id:
-            missing_params.append("b2_account_id")
-        if not self.b2_account_key:
-            missing_params.append("b2_account_key")
+        if not self.b2_key_id:
+            missing_params.append("b2_key_id")
+        if not self.b2_application_key:
+            missing_params.append("b2_application_key")
         if not self.restic_password:
             missing_params.append("restic_password")
         if not self.retention_days:
@@ -184,8 +197,8 @@ def get_config_from_env() -> dict:
     try:
         return {
             "repository_url": os.environ["HOMELAB_BACKUP_RESTIC_REPOSITORY"],
-            "b2_account_id": os.environ["HOMELAB_BACKUP_B2_ACCOUNT_ID"],
-            "b2_account_key": os.environ["HOMELAB_BACKUP_B2_ACCOUNT_KEY"],
+            "b2_key_id": os.environ["HOMELAB_BACKUP_B2_KEY_ID"],
+            "b2_application_key": os.environ["HOMELAB_BACKUP_B2_APPLICATION_KEY"],
             "restic_password": os.environ["HOMELAB_BACKUP_RESTIC_PASSWORD"],
             "backup_path": os.environ["HOMELAB_BACKUP_PATH"],
             "retention_days": int(os.environ["HOMELAB_BACKUP_RETENTION_DAYS"]),
@@ -219,8 +232,8 @@ def main():
         backup = ResticToBackblazeBackup(
             backup_path=config["backup_path"],
             repository_url=config["repository_url"],
-            b2_account_id=config["b2_account_id"],
-            b2_account_key=config["b2_account_key"],
+            b2_key_id=config["b2_key_id"],
+            b2_application_key=config["b2_application_key"],
             restic_password=config["restic_password"],
             retention_days=config["retention_days"],
         )

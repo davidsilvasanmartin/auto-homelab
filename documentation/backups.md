@@ -41,10 +41,10 @@ The reason you don't see explicit code for the Backblaze connection is because:
 2. **Authentication via environment variables**: The script sets these environment variables that restic uses:
 
 ```python
-self.env['RESTIC_REPOSITORY'] = self.repository
-self.env['B2_ACCOUNT_ID'] = self.b2_account_id
-self.env['B2_ACCOUNT_KEY'] = self.b2_account_key
-self.env['RESTIC_PASSWORD'] = self.restic_password
+self.env["RESTIC_REPOSITORY"] = self.repository
+self.env["AWS_ACCESS_KEY_ID"] = self.b2_key_id
+self.env["AWS_SECRET_ACCESS_KEY"] = self.b2_application_key
+self.env["RESTIC_PASSWORD"] = self.restic_password
 ```
 
 3. **Repository URL format**: The `RESTIC_REPOSITORY` variable uses a special URL format that tells restic which backend
