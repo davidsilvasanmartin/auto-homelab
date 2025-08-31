@@ -34,7 +34,7 @@ Open a Backblaze B2 account and create a bucket:
 You need to use the bucket's ID (`c0..` on the screenshot) when you are asked for the
 `HOMELAB_BACKUP_RESTIC_REPOSITORY` variable. This variable should contain the following:
 ```
-b2:/<bucket_id>:<directory_inside_bucket>/
+b2:<bucket_id>:<directory_inside_bucket>/
 ```
 
 Then, go to Application Keys and create a new key that gives write access to the bucket:
