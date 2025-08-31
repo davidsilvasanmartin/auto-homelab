@@ -25,11 +25,11 @@ backup-local:
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:
-    {{uv}} run --env-file=.env -m scripts.cloud_backup
+    {{uv}} run --env-file=.env -m scripts.backup.cloud --command=backup
 
 # [🔧 APP] Lists the backup snapshots that exist on the configured cloud bucket
 backup-cloud-list:
-    {{uv}} run --env-file=.env -m scripts.cloud_backup --command=list
+    {{uv}} run --env-file=.env -m scripts.backup.cloud --command=list
 
 # [🔧 APP] Restores the paperless-ngx data
 restore-paperless:

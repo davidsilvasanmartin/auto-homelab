@@ -30,6 +30,12 @@ class CommandRunner:
             raise e
 
 
+def _sh_quote(value: str) -> str:
+    """Wrap a string in single quotes for POSIX shells, escaping any embedded single quotes safely.
+    This produces: 'part1'"'"'part2' which the shell interprets as a single literal string."""
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
 class Backup:
     """
     Base class for all backup operations.
@@ -152,9 +158,10 @@ class PostgreSQLBackup(Backup):
         backup_file = self.output_path / f"{self.db_name}.sql"
 
         # Construct the docker command
+        password = _sh_quote(self.password)
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f'"PGPASSWORD={self.password} pg_dump --username {self.username} {self.db_name}"'
+            f'"PGPASSWORD={password} pg_dump --username {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
@@ -204,9 +211,10 @@ class MySQLBackup(Backup):
         backup_file = self.output_path / f"{self.db_name}.sql"
 
         # Construct the docker command
+        password = _sh_quote(self.password)
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f'"MYSQL_PWD={self.password} mysqldump --user {self.username} {self.db_name}"'
+            f'"MYSQL_PWD={password} mysqldump --user {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
@@ -257,9 +265,10 @@ class MariaDbBackup(Backup):
         backup_file = self.output_path / f"{self.db_name}.sql"
 
         # Construct the docker command using mariadb-dump
+        password = _sh_quote(self.password)
         docker_command = (
             f"docker exec -i {self.container_name} /bin/bash -c "
-            f'"MYSQL_PWD={self.password} mariadb-dump --user {self.username} {self.db_name}"'
+            f'"MYSQL_PWD={password} mariadb-dump --user {self.username} {self.db_name}"'
             f" > {backup_file}"
         )
 
