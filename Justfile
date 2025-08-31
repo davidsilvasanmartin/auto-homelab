@@ -21,7 +21,7 @@ stop service="":
 
 # [🔧 APP] Creates a local backup of all services' data
 backup-local:
-    {{uv}} run --env-file=.env -m scripts.backup
+    {{uv}} run --env-file=.env -m scripts.backup.local
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:
