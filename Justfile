@@ -40,8 +40,11 @@ dev-test:
     {{uv}} run --env-file=.env -m pytest scripts/tests
 
 # TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
+# [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`
+dev-add +pkgs:
+    {{uv}} add {{pkgs}}
 
-# [🧪 DEV] Add development dependencies with uv. Example: `just add-dev "black>=24.8,<25" isort mypy`
+# [🧪 DEV] Add development dependencies with uv. Example: `just dev-add-dev "black>=24.8,<25" isort mypy`
 dev-add-dev +pkgs:
     {{uv}} add --dev {{pkgs}}
 

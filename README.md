@@ -29,7 +29,7 @@ these are for my own reference, so that I can remember how I did something.
 - `files/`: contains configuration files and scripts for various services
 - `scripts/`: contains Python scripts that give this project some of its functionality
 - `scripts-shell/`: contains shell scripts that provide some extra functionalities
-- `scripts/env.schema.json`: this file contains the schema of the environment variables that are used by the app
+- `scripts/env.config.json`: this file contains the schema of the environment variables that are used by the app
 
 ## Disaster recovery: How to restore the services once we have restored the backup files
 
@@ -50,7 +50,7 @@ To see an example of how to restore a Postgres database, [see the official Immic
 docs](https://immich.app/docs/administration/backup-and-restore#manual-backup-and-restore).
 
 It is possible that database restoration processes fail if the name of the old database is different from the new one.
-That's why it's recommended to leave database names untouched. They are defined in the `env.schema.json` file.
+That's why it's recommended to leave database names untouched. They are defined in the `env.config.json` file.
 
 ### Restoring Calibre
 

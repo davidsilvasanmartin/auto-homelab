@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate a .env file by reading the entries from env.schema.json
-
-TODO !!! READ, REVIEW, AND FIX
+Generate a .env.<TIMESTAMP> file by reading the entries from the JSON configuration file
 """
 
 import json
 import time
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict, cast
+from typing import NotRequired, TypedDict
+
+from jsonschema import validate
 
 from scripts.env_vars import (
     EnvVar,
@@ -19,134 +18,39 @@ from scripts.env_vars import (
     get_value_for_type,
 )
 from scripts.printer import Printer
-from scripts.validator import Validator
 
 # Resolve paths relative to the repository root (parent of scripts/)
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = _REPO_ROOT / "scripts" / "env.schema.json"
 OUTPUT_ENV_PATH = _REPO_ROOT / f".env.generated.{int(time.time())}"
 
-class SchemaVariable(TypedDict):
+class ConfigVariable(TypedDict):
     name: str
     type: str
     description: str
     value: NotRequired[str]
 
-class SchemaSection(TypedDict):
+class ConfigSection(TypedDict):
     name: str
     description: str
-    variables: list[SchemaVariable]
+    variables: list[ConfigVariable]
 
-class SchemaRoot(TypedDict):
+class ConfigRoot(TypedDict):
     prefix: str
-    sections: list[SchemaSection]
+    sections: list[ConfigSection]
 
-def load_schema_raw(path: Path) -> SchemaRoot:
-    if not path.exists():
-        raise ValueError(f"Schema file not found at {path.resolve()}")
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def validate_and_load_config() -> ConfigRoot:
+    conf_file_path = _REPO_ROOT / "scripts" / "env.config.json"
+    conf_schema_file_path = _REPO_ROOT / "scripts" / "env.config.schema.json"
+    if not conf_file_path.exists() or not conf_file_path.is_file():
+        raise ValueError(f"Config file not found at {conf_file_path.resolve()}")
+    if not conf_schema_file_path.exists() or not conf_schema_file_path.is_file():
+        raise ValueError(f"Schema of config file not found at {conf_schema_file_path.resolve()}")
 
-
-class SchemaValidator:
-    """
-    Converts the JSON schema into a normalized structure (RawSection/RawVar).
-
-    Supported formats:
-    - Legacy (current):
-        {
-          "GENERAL": {
-            "description": "...",
-            "variables": {
-              "SERVER_IP": {"type": "IP", "description": "...", "value": null},
-              ...
-            }
-          },
-          "ADGUARD": { ... }
-        }
-
-    - Proposed (easier):
-        {
-          "prefix": "HOMELAB",
-          "sections": [
-            {
-              "name": "GENERAL",
-              "description": "...",
-              "variables": [
-                {"name": "SERVER_IP", "type": "IP", "description": "...", "value": null},
-                ...
-              ]
-            },
-            ...
-          ]
-        }
-    """
-
-    def __init__(self, raw: dict[str, Any]) -> None:
-        self.raw = raw
-
-    def parse(self) -> None:
-        """
-        Returns (prefix_override, sections)
-        """
-        self._parse_proposed(self.raw)
-        raise ValueError("Unsupported schema root. Expecting an object or an object with 'sections'.")
-
-    def _parse_proposed(self, raw_root: object) -> None:
-        if not isinstance(raw_root, Mapping):
-            raise ValueError("Schema root must be an object.")
-        root = cast(Mapping[str, object], raw_root)
-        if "prefix" not in root or "sections" not in root:
-            raise ValueError("Schema root must contain 'prefix' and 'sections'.")
-
-        prefix = root["prefix"]
-        sections = root["sections"]
-
-        prefix = raw_root.prefix
-        Validator.validate_string(prefix, "prefix")
-
-        if not isinstance(raw_root.get("sections"), list):
-            raise ValueError("'sections' must be an array.")
-
-        raw_sections: list[dict[str, Any]] = raw_root.get("sections", [])
-        if not raw_sections:
-            raise ValueError("'sections' must not be empty.")
-
-        for idx, raw_section_obj in enumerate(raw_sections, start=1):
-            if not isinstance(raw_section_obj, dict):
-                raise ValueError(f"Section at index {idx} must be an object.")
-            section_name = raw_section_obj.get("name")
-            section_desc = raw_section_obj.get("description")
-            section_variables = raw_section_obj.get("variables", [])
-
-            Validator.validate_string(section_name, f"Section[{idx}].name")
-            Validator.validate_string(section_desc, f"Section[{idx}].description")
-            if not isinstance(section_variables, list):
-                raise ValueError(f"Section[{idx}].variables must be an array.")
-
-            raw_vars: list[RawVar] = []
-            for jdx, var_obj in enumerate(section_variables, start=1):
-                if not isinstance(var_obj, dict):
-                    raise ValueError(f"Section[{idx}].variables[{jdx}] must be an object.")
-                var_name = var_obj.get("name")
-                var_type = var_obj.get("type")
-                var_desc = var_obj.get("description")
-                var_value = var_obj.get("value")
-
-                Validator.validate_string(var_name, f"Section[{idx}].variables[{jdx}].name")
-                Validator.validate_string(var_type, f"Section[{idx}].variables[{jdx}].type")
-                Validator.validate_string_or_none(var_desc, f"Section[{idx}].variables[{jdx}].description")
-                Validator.validate_string_or_none(var_value, f"Section[{idx}].variables[{jdx}].value")
-
-                raw_vars.append(RawVar(name=var_name, type=var_type, description=var_desc, value=var_value))
-
-            sections.append(RawSection(name=section_name, description=section_desc, variables=raw_vars))
-
-        return prefix, sections
-
-    def _validate_section(self, section: dict[str, Any]) -> None:
-        pass
-
+    with conf_file_path.open("r", encoding="utf-8") as conf_file, conf_schema_file_path.open("r", encoding="utf-8") as conf_schema_file:
+            json_config = json.load(conf_file)
+            json_config_schema = json.load(conf_schema_file)
+            validate(instance=json_config, schema=json_config_schema)
+            return json_config
 
 # -----------------------------
 # Builder: dotenv content
@@ -180,37 +84,25 @@ class DotenvBuilder:
 # -----------------------------
 
 
-def parse_schema(obj: Any, *, registry: TypeHandlerRegistry | None = None) -> EnvVarsRoot:
-    adapter = SchemaValidator(obj)
-    parsed = adapter.parse()
-    if isinstance(parsed, tuple):
-        prefix_override, sections = parsed
-    else:
-        # Defensive: shouldn't happen due to return types above
-        prefix_override, sections = None, parsed
+def parse_config(config_root: ConfigRoot,*, registry: TypeHandlerRegistry | None = None) -> EnvVarsRoot:
+    root = EnvVarsRoot(prefix=config_root["prefix"])
 
-    # TODO extract prefix from JSON
-    root = EnvVarsRoot()
-    if prefix_override:
-        root.prefix = prefix_override
-
-    for section_data in sections:
-        section_full_name = f"{root.prefix}_{section_data.name}"
-        section = EnvVarsSection(name=section_full_name, description=section_data.description)
+    for config_section in config_root["sections"]:
+        section_full_name = f"{root.prefix}_{config_section["name"]}"
+        section = EnvVarsSection(name=section_full_name, description=config_section["description"])
         root.add_section(section)
 
-        # Print section header for user context
         Printer.info(f"\n\n>>>>>>>>>> Section: {section.name}")
         if section.description:
             for line in Printer.wrap_lines(text=section.description, width=120):
                 Printer.info(line)
 
-        for raw_var in section_data.variables:
+        for config_var in config_section["variables"]:
             var = EnvVar(
-                name=f"{section.name}_{raw_var.name}",
-                type=raw_var.type,
-                description=raw_var.description,
-                value=raw_var.value,
+                name=f"{section.name}_{config_var["name"]}",
+                type=config_var["type"],
+                description=config_var["description"],
+                value=config_var.get("value", None),
             )
             section.add_var(var)
 
@@ -227,8 +119,8 @@ def parse_schema(obj: Any, *, registry: TypeHandlerRegistry | None = None) -> En
 
 
 def main() -> None:
-    raw = load_schema_raw(SCHEMA_PATH)
-    schema: EnvVarsRoot = parse_schema(raw)
+    config_root = validate_and_load_config()
+    schema: EnvVarsRoot = parse_config(config_root)
 
     builder = DotenvBuilder()
     for section in schema.sections:
