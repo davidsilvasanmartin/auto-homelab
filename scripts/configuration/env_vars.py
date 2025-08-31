@@ -3,6 +3,7 @@ Defines the Python classes for representing environment variables, and provides
 some utilities for working with them
 """
 
+import os
 import secrets
 import string
 import sys
@@ -77,6 +78,7 @@ class VarTypeStrategy(ABC):
 
 class ConstantStrategy(VarTypeStrategy):
     def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        # We do NOT check here whether the variable already exists in .env
         Validator.validate_string_or_none(value=default_spec, name=f"Variable '{var_name}' value")
         Printer.info(f"Defaulting to: {default_spec}")
         return default_spec
@@ -94,6 +96,9 @@ class GeneratedStrategy(VarTypeStrategy):
     }
 
     def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        if os.environ.get(var_name):
+            return os.environ[var_name]
+
         charset_name = "ALPHA"
         length = 32
 
@@ -123,6 +128,9 @@ class GeneratedStrategy(VarTypeStrategy):
 
 class IpStrategy(VarTypeStrategy):
     def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        if os.environ.get(var_name):
+            return os.environ[var_name]
+
         while True:
             user_val = _prompt(f"Enter value for {var_name} (IP): ")
             try:
@@ -134,6 +142,9 @@ class IpStrategy(VarTypeStrategy):
 
 class StringStrategy(VarTypeStrategy):
     def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        if os.environ.get(var_name):
+            return os.environ[var_name]
+
         while True:
             user_val = _prompt(f"Enter value for {var_name} (STRING): ")
             try:
@@ -145,6 +156,9 @@ class StringStrategy(VarTypeStrategy):
 
 class PathStrategy(VarTypeStrategy):
     def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        if os.environ.get(var_name):
+            return os.environ[var_name]
+
         while True:
             user_val = _prompt(f"Enter value for {var_name} (PATH): ")
             # Ensure it's a non-empty string first
