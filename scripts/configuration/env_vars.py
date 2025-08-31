@@ -6,9 +6,9 @@ some utilities for working with them
 import secrets
 import string
 import sys
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
 
 from scripts.printer import Printer
 from scripts.validator import Validator
@@ -66,24 +66,23 @@ def _prompt(prompt_text: str) -> str:
 # -----------------------------
 
 
-class VarTypeStrategy(Protocol):
+class VarTypeStrategy(ABC):
     """
     Strategy interface to acquire a value for an environment variable type.
     """
 
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str: ...
+    @abstractmethod
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None: ...
 
 
-class ConstantStrategy:
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        # TODO we are always printing the following line, consider abstracting this away from particular implementations
-        Printer.info(f"\n> {var.name}: {var.description}")
-        Validator.validate_string_or_none(value=default_spec, name=f"Variable '{var.name}' value")
+class ConstantStrategy(VarTypeStrategy):
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
+        Validator.validate_string_or_none(value=default_spec, name=f"Variable '{var_name}' value")
         Printer.info(f"Defaulting to: {default_spec}")
-        return default_spec or ""
+        return default_spec
 
 
-class GeneratedStrategy:
+class GeneratedStrategy(VarTypeStrategy):
     """
     default_spec format: "<SET>:<LENGTH>"
     SET in {"ALL", "ALPHA"}
@@ -94,13 +93,12 @@ class GeneratedStrategy:
         "ALPHA": string.ascii_letters + string.digits,
     }
 
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description}")
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
         charset_name = "ALPHA"
         length = 32
 
         try:
-            Validator.validate_string(value=default_spec, name=f"Variable '{var.name}' generation spec")
+            Validator.validate_string(value=default_spec, name=f"Variable '{var_name}' generation spec")
             parts = str(default_spec).split(":", 1)
             if len(parts) != 2:
                 raise ValueError("Invalid GENERATED spec format.")
@@ -114,46 +112,43 @@ class GeneratedStrategy:
             length = parsed_len
         except Exception as e:
             Printer.info(
-                f"Invalid GENERATED spec '{default_spec}' for {var.name} ({e}). Defaulting to ALPHA:32."
+                f"Invalid GENERATED spec '{default_spec}' for {var_name} ({e}). Defaulting to ALPHA:32."
             )
 
         pool = self._charset_pools[charset_name]
         generated = "".join(secrets.choice(pool) for _ in range(length))
-        Printer.info(f"Generated a secret value of length {length} for {var.name}.")
+        Printer.info(f"Generated a secret value of length {length} for {var_name}.")
         return generated
 
 
-class IpStrategy:
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description}")
+class IpStrategy(VarTypeStrategy):
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
         while True:
-            user_val = _prompt(f"Enter value for {var.name} (IP): ")
+            user_val = _prompt(f"Enter value for {var_name} (IP): ")
             try:
-                Validator.validate_ip(value=user_val, name=var.name)
+                Validator.validate_ip(value=user_val, name=var_name)
                 return user_val
             except ValueError:
                 Printer.info("Invalid IP address. Please enter a valid IPv4 or IPv6 address.")
 
 
-class StringStrategy:
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description}")
+class StringStrategy(VarTypeStrategy):
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
         while True:
-            user_val = _prompt(f"Enter value for {var.name} (STRING): ")
+            user_val = _prompt(f"Enter value for {var_name} (STRING): ")
             try:
-                Validator.validate_string(value=user_val, name=var.name)
+                Validator.validate_string(value=user_val, name=var_name)
                 return user_val
             except ValueError:
                 Printer.info("Invalid string. Please enter a non-empty string.")
 
 
-class PathStrategy:
-    def acquire(self, *, var: EnvVar, default_spec: str | None) -> str:
-        Printer.info(f"\n> {var.name}: {var.description}")
+class PathStrategy(VarTypeStrategy):
+    def acquire(self, *, var_name: str, default_spec: str | None) -> str | None:
         while True:
-            user_val = _prompt(f"Enter value for {var.name} (PATH): ")
+            user_val = _prompt(f"Enter value for {var_name} (PATH): ")
             # Ensure it's a non-empty string first
-            Validator.validate_string(value=user_val, name=var.name)
+            Validator.validate_string(value=user_val, name=var_name)
 
             p = Path(user_val).expanduser()
             try:
@@ -208,15 +203,13 @@ _default_registry.register("STRING", StringStrategy())
 _default_registry.register("PATH", PathStrategy())
 
 
-def get_value_for_type(
+def acquire_value_for_var(
     var_name: str,
-    var_description: str,
     var_type: str,
-    var_value: str | None,
-) -> str:
+    default_spec: str | None,
+) -> str | None:
     """
     Acquire a value for a variable by delegating to the appropriate type strategy.
     """
-    var = EnvVar(name=var_name, type=var_type, description=var_description, value=var_value)
     strategy = _default_registry.get(var_type)
-    return strategy.acquire(var=var, default_spec=var_value)
+    return strategy.acquire(var_name=var_name, default_spec=default_spec)

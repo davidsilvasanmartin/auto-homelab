@@ -14,13 +14,12 @@ from scripts.configuration.env_vars import (
     EnvVar,
     EnvVarsRoot,
     EnvVarsSection,
-    get_value_for_type,
+    acquire_value_for_var,
 )
 from scripts.printer import Printer
 
 # Resolve paths relative to the repository root
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-OUTPUT_ENV_PATH = _REPO_ROOT / f".env.generated.{int(time.time())}"
 
 
 class ConfigVariable(TypedDict):
@@ -94,8 +93,7 @@ class DotenvBuilder:
         """
         self._lines.append("#" * 120)
         self._lines.append(f"# {section.name}")
-        if section.description:
-            self._lines.append(f"# {section.description}")
+        self._lines.append(f"# {section.description}")
         self._lines.append("#" * 120)
 
         for var in section.vars:
@@ -121,26 +119,26 @@ def parse_config_and_get_user_input(config_root: ConfigRoot) -> EnvVarsRoot:
         root.add_section(section)
 
         Printer.info(f"\n\n>>>>>>>>>> Section: {section.name}")
-        if section.description:
-            for line in Printer.wrap_lines(text=section.description, width=120):
-                Printer.info(line)
+        for line in Printer.wrap_lines(text=section.description, width=120):
+            Printer.info(line)
 
         for config_var in config_section["variables"]:
+            name = f"{section.name}_{config_var['name']}"
+            var_type = config_var["type"]
+            description = config_var["description"]
+            default_spec = config_var.get("value", None)
+
+            Printer.info(f"\n> {name}: {description}")
+
+            value = acquire_value_for_var(var_name=name, var_type=var_type, default_spec=default_spec)
+
             var = EnvVar(
-                name=f"{section.name}_{config_var['name']}",
-                type=config_var["type"],
-                description=config_var["description"],
-                value=config_var.get("value", None),
+                name=name,
+                type=var_type,
+                description=description,
+                value=value,
             )
             section.add_var(var)
-
-            value = get_value_for_type(
-                var_name=var.name,
-                var_description=var.description,
-                var_type=var.type,
-                var_value=var.value,
-            )
-            var.set_value(value)
 
     return root
 
@@ -154,8 +152,9 @@ def main() -> None:
         builder.add_section(section)
 
     content = builder.build()
-    OUTPUT_ENV_PATH.write_text(content, encoding="utf-8")
-    Printer.info(f"Wrote {OUTPUT_ENV_PATH} with {builder.total_vars} entries.")
+    output_env_path = _REPO_ROOT / f".env.generated.{int(time.time())}"
+    output_env_path.write_text(content, encoding="utf-8")
+    Printer.info(f"Wrote {output_env_path} with {builder.total_vars} entries.")
 
 
 if __name__ == "__main__":
