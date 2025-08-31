@@ -10,6 +10,7 @@ Script for backing up files to Backblaze B2 using restic
 
 Useful documentation:
     - https://www.backblaze.com/docs/cloud-storage-integrate-restic-with-backblaze-b2#create-an-application-key
+    - https://restic.readthedocs.io/en/latest/030_preparing_a_new_repo.html#backblaze-b2
     
     
     
@@ -57,8 +58,8 @@ class ResticToBackblazeBackup:
         # Set environment variables for restic
         self.env = os.environ.copy()
         self.env["RESTIC_REPOSITORY"] = self.repository
-        self.env["AWS_ACCESS_KEY_ID"] = self.b2_key_id
-        self.env["AWS_SECRET_ACCESS_KEY"] = self.b2_application_key
+        self.env["B2_ACCOUNT_ID"] = self.b2_key_id
+        self.env["B2_ACCOUNT_KEY"] = self.b2_application_key
         self.env["RESTIC_PASSWORD"] = self.restic_password
 
     def _validate_config(self):

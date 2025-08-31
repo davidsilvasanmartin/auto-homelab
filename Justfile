@@ -27,6 +27,10 @@ backup-local:
 backup-cloud:
     {{uv}} run --env-file=.env -m scripts.cloud_backup
 
+# [🔧 APP] Lists the backup snapshots that exist on the configured cloud bucket
+backup-cloud-list:
+    {{uv}} run --env-file=.env -m scripts.cloud_backup --command=list
+
 # [🔧 APP] Restores the paperless-ngx data
 restore-paperless:
     ./scripts-shell/restore_paperless.sh
