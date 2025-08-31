@@ -59,6 +59,9 @@ not use them unless you are contributing to this project.
 
 TODO... This section is under construction ...
 
+Be aware that once you start Portainer for the first time, you only have a few minutes to create an admin username and
+password. If you don't do it in time, you will have to delete the Portainer container and start the service again.
+
 ### Create the environment variables file
 
 TODO ...
