@@ -7,9 +7,9 @@ TODO !!! READ, REVIEW, AND FIX
 
 import json
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict, cast
 
 from scripts.env_vars import (
     EnvVar,
@@ -26,37 +26,31 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = _REPO_ROOT / "scripts" / "env.schema.json"
 OUTPUT_ENV_PATH = _REPO_ROOT / f".env.generated.{int(time.time())}"
 
+class SchemaVariable(TypedDict):
+    name: str
+    type: str
+    description: str
+    value: NotRequired[str]
 
-def load_schema_raw(path: Path) -> dict | list:
+class SchemaSection(TypedDict):
+    name: str
+    description: str
+    variables: list[SchemaVariable]
+
+class SchemaRoot(TypedDict):
+    prefix: str
+    sections: list[SchemaSection]
+
+def load_schema_raw(path: Path) -> SchemaRoot:
     if not path.exists():
         raise ValueError(f"Schema file not found at {path.resolve()}")
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
-# -----------------------------
-# Adapter: support multiple schema shapes
-# -----------------------------
-
-
-@dataclass
-class RawVar:
-    name: str
-    type: str
-    description: str | None
-    value: str | None
-
-
-@dataclass
-class RawSection:
-    name: str
-    description: str | None
-    variables: list[RawVar]
-
-
-class SchemaAdapter:
+class SchemaValidator:
     """
-    Converts different JSON schema shapes into a normalized structure (RawSection/RawVar).
+    Converts the JSON schema into a normalized structure (RawSection/RawVar).
 
     Supported formats:
     - Legacy (current):
@@ -88,86 +82,50 @@ class SchemaAdapter:
         }
     """
 
-    def __init__(self, raw: dict | list) -> None:
+    def __init__(self, raw: dict[str, Any]) -> None:
         self.raw = raw
 
-    def parse(self) -> tuple[str | None, list[RawSection]]:
+    def parse(self) -> None:
         """
         Returns (prefix_override, sections)
         """
-        if isinstance(self.raw, dict) and "sections" in self.raw and isinstance(self.raw["sections"], list):
-            return self._parse_proposed(self.raw)
-        if isinstance(self.raw, dict):
-            return None, self._parse_legacy(self.raw)
+        self._parse_proposed(self.raw)
         raise ValueError("Unsupported schema root. Expecting an object or an object with 'sections'.")
 
-    def _parse_legacy(self, obj: dict) -> list[RawSection]:
-        Validator.validate_dict(value=obj, name="Schema root")
-        sections: list[RawSection] = []
-        for section_name, section_val in obj.items():
-            Validator.validate_string(value=section_name, name="Section name")
-            Validator.validate_dict(value=section_val, name=f"Section '{section_name}'")
+    def _parse_proposed(self, raw_root: object) -> None:
+        if not isinstance(raw_root, Mapping):
+            raise ValueError("Schema root must be an object.")
+        root = cast(Mapping[str, object], raw_root)
+        if "prefix" not in root or "sections" not in root:
+            raise ValueError("Schema root must contain 'prefix' and 'sections'.")
 
-            section_description = section_val.get("description")
-            section_vars = section_val.get("variables")
-            Validator.validate_string(value=section_description, name=f"Section '{section_name}' description")
-            Validator.validate_dict(value=section_vars, name=f"Section '{section_name}' variables")
+        prefix = root["prefix"]
+        sections = root["sections"]
 
-            raw_vars: list[RawVar] = []
-            for var_name, var_obj in section_vars.items():
-                Validator.validate_string(
-                    value=var_name, name=f"Section '{section_name}' variable '{var_name}"
-                )
-                Validator.validate_dict(value=var_obj, name=f"Section '{section_name}' variable '{var_name}'")
+        prefix = raw_root.prefix
+        Validator.validate_string(prefix, "prefix")
 
-                var_type = var_obj.get("type")
-                var_description = var_obj.get("description")
-                var_value = var_obj.get("value")
-
-                Validator.validate_string(
-                    value=var_type, name=f"Section '{section_name}' variable '{var_name}' type"
-                )
-                Validator.validate_string_or_none(
-                    value=var_description, name=f"Section '{section_name}' variable '{var_name}' description"
-                )
-                Validator.validate_string_or_none(
-                    value=var_value, name=f"Section '{section_name}' variable '{var_name}' default value"
-                )
-
-                raw_vars.append(
-                    RawVar(name=var_name, type=var_type, description=var_description, value=var_value)
-                )
-
-            sections.append(
-                RawSection(name=section_name, description=section_description, variables=raw_vars)
-            )
-        return sections
-
-    def _parse_proposed(self, obj: dict) -> tuple[str | None, list[RawSection]]:
-        # prefix is optional override
-        prefix = obj.get("prefix")
-        if prefix is not None:
-            Validator.validate_string(prefix, "prefix")
-
-        sections_node = obj.get("sections", [])
-        if not isinstance(sections_node, list):
+        if not isinstance(raw_root.get("sections"), list):
             raise ValueError("'sections' must be an array.")
 
-        sections: list[RawSection] = []
-        for idx, section_obj in enumerate(sections_node, start=1):
-            if not isinstance(section_obj, dict):
+        raw_sections: list[dict[str, Any]] = raw_root.get("sections", [])
+        if not raw_sections:
+            raise ValueError("'sections' must not be empty.")
+
+        for idx, raw_section_obj in enumerate(raw_sections, start=1):
+            if not isinstance(raw_section_obj, dict):
                 raise ValueError(f"Section at index {idx} must be an object.")
-            section_name = section_obj.get("name")
-            section_desc = section_obj.get("description")
-            variables_node = section_obj.get("variables", [])
+            section_name = raw_section_obj.get("name")
+            section_desc = raw_section_obj.get("description")
+            section_variables = raw_section_obj.get("variables", [])
 
             Validator.validate_string(section_name, f"Section[{idx}].name")
             Validator.validate_string(section_desc, f"Section[{idx}].description")
-            if not isinstance(variables_node, list):
+            if not isinstance(section_variables, list):
                 raise ValueError(f"Section[{idx}].variables must be an array.")
 
             raw_vars: list[RawVar] = []
-            for jdx, var_obj in enumerate(variables_node, start=1):
+            for jdx, var_obj in enumerate(section_variables, start=1):
                 if not isinstance(var_obj, dict):
                     raise ValueError(f"Section[{idx}].variables[{jdx}] must be an object.")
                 var_name = var_obj.get("name")
@@ -185,6 +143,9 @@ class SchemaAdapter:
             sections.append(RawSection(name=section_name, description=section_desc, variables=raw_vars))
 
         return prefix, sections
+
+    def _validate_section(self, section: dict[str, Any]) -> None:
+        pass
 
 
 # -----------------------------
@@ -220,7 +181,7 @@ class DotenvBuilder:
 
 
 def parse_schema(obj: Any, *, registry: TypeHandlerRegistry | None = None) -> EnvVarsRoot:
-    adapter = SchemaAdapter(obj)
+    adapter = SchemaValidator(obj)
     parsed = adapter.parse()
     if isinstance(parsed, tuple):
         prefix_override, sections = parsed
