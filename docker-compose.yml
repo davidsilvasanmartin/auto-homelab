@@ -29,6 +29,7 @@ services:
       # setting "127.0.0.1:53000" as the DNS server on MacOS will NOT work
       - "53:53/tcp" # plain dns over tcp
       - "53:53/udp" # plain dns over udp
+      - "3000:3000"
     volumes:
       - ${HOMELAB_ADGUARD_CONF_PATH}:/opt/adguardhome/conf # app configuration
       - ${HOMELAB_ADGUARD_WORK_PATH}:/opt/adguardhome/work # app working directory

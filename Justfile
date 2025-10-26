@@ -39,6 +39,13 @@ restore-paperless:
 restore-immich:
     ./scripts-shell/restore_immich.sh
 
+# [🔧 APP] Fixes the permissions of directories used by the app (Mac or Linux)
+fix-perms:
+    UID_CURR=$(id -u); \
+    GID_CURR=$(id -g); \
+    echo ${UID_CURR}; \
+    echo ${GID_CURR};
+
 # [🧪 DEV] Runs the tests of Python scripts
 dev-test:
     {{uv}} run --env-file=.env -m pytest scripts/tests
