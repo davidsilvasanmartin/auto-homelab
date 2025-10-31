@@ -8,9 +8,20 @@ import (
 	"strings"
 )
 
+type Require interface {
+	RequireDocker() error
+	RequireFilesInWd(files ...string) error
+}
+
+// SystemRequire utilizes system utilities to perform the require operations
+type SystemRequire struct {
+}
+
+// TODO "New" constructor
+
 // RequireDocker requires that the docker command is installed,
 // or returns an error otherwise
-func RequireDocker() error {
+func (r *SystemRequire) RequireDocker() error {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return fmt.Errorf("docker command not found: %w (is Docker installed in PATH?)", err)
 	}
@@ -19,7 +30,7 @@ func RequireDocker() error {
 
 // RequireFilesInWd requires that certain files exist in the
 // current working directory
-func RequireFilesInWd(files ...string) error {
+func (r *SystemRequire) RequireFilesInWd(files ...string) error {
 	// TODO
 	if len(files) == 0 {
 		return nil

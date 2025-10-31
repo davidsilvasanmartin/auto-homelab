@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"auto-homelab/internal/require"
+	"auto-homelab/internal/docker"
 	"log/slog"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -18,41 +17,22 @@ var startCmd = &cobra.Command{
 	Short: "Start services (or all services if none specified)",
 	Long:  "Starts services in your homelab. If no service is provided, this would start all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startServices(args...)
+		runner := docker.NewSystemDockerRunner(os.Stdout, os.Stderr)
+		return startServices(runner, args...)
 	},
 }
 
 // startServices starts services by using docker compose.
 // If the service is empty, starts all services
-func startServices(services ...string) error {
+func startServices(dockerRunner docker.DockerRunner, services ...string) error {
 	if len(services) == 0 {
 		slog.Info("Starting all services...")
 	} else {
 		slog.Info("Starting services", "services", services)
 	}
 
-	if err := require.RequireDocker(); err != nil {
-		return err
-	}
-	if err := require.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
-		return err
-	}
-
-	args := []string{"compose", "up", "-d"}
-	args = append(args, services...)
-
-	cmd := exec.Command("docker", args...)
-	// Capture both stdout and stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	slog.Debug("Executing docker compose command",
-		"command", "docker",
-		"args", args,
-		"dir", cmd.Dir,
-	)
-
-	if err := cmd.Run(); err != nil {
+	err := dockerRunner.ComposeStart(services)
+	if err != nil {
 		return err
 	}
 
