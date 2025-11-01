@@ -3,9 +3,16 @@ Regarding the test called `TestDefaultSystem_RequireDir_NotADir`: isn't this a g
 
 What are your thoughts on this mantra? Why could it be beneficial to return structs instead of interfaces? Right now I don't see any positive points
 
-TODO/NOTE: I need to read the following and think about it along with this response: https://tutorialedge.net/golang/accept-interfaces-return-structs/
+---
+**NOTES**
+- I need to read the following and think about it along with this response: https://tutorialedge.net/golang/accept-interfaces-return-structs/
+- Also, read this https://web.archive.org/web/20250712133018/https://abhinavg.net/2022/12/06/designing-go-libraries/
+- Comments from Reddit, https://www.reddit.com/r/golang/comments/16w6u6n/how_to_understand_the_concept_accept_interface/
+    -  If you return a struct and later add new methods (receivers) to it you have not made a breaking change you have extended it. BUT If you return an interface and later add new methods to it you have made a breaking change impacting, at the very least, all of your consumers (users) implementing that interface with their own structs. But this is only one reason to return structs over interfaces, another reason would be that returning an interface means it can only ever be that interface but if you return a struct with String(), Error(), and Read() methods you have satisfied 3 extremely commonly used interfaces with your struct.
 
 ---
+
+**ANSWER**
 
 Excellent observation! You've identified a real tension in Go design philosophy. Let me break down the nuanced reality:
 
