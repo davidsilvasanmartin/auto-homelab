@@ -202,3 +202,83 @@ func TestDefaultSystem_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultSystem_RequireDir_NotFound(t *testing.T) {
+	mock := &mockStdlib{
+		stat: func(name string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+	}
+	system := &DefaultSystem{stdlib: mock}
+
+	err := system.RequireDir("/home/user/dir")
+
+	if err == nil {
+		t.Fatal("expected error when dir missing, got nil")
+	}
+	expectedMsg := "required directory not found: /home/user/dir"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultSystem_RequireDir_GenericError(t *testing.T) {
+	mock := &mockStdlib{
+		stat: func(name string) (os.FileInfo, error) {
+			return nil, errors.New("permission denied")
+		},
+	}
+	system := &DefaultSystem{stdlib: mock}
+
+	err := system.RequireDir("/home/user/dir")
+
+	if err == nil {
+		t.Fatal("expected error when dir cannot be checked, got nil")
+	}
+	expectedMsg := "failed to check file /home/user/dir: permission denied"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultSystem_RequireDir_NotADir(t *testing.T) {
+	mock := &mockStdlib{
+		stat: func(name string) (os.FileInfo, error) {
+			mockFile := &mockFileInfo{
+				name:  "file.txt",
+				isDir: false,
+			}
+			return mockFile, nil
+		},
+	}
+	system := &DefaultSystem{stdlib: mock}
+
+	err := system.RequireDir("/home/user/file.txt")
+
+	if err == nil {
+		t.Fatal("expected error when dir is a file, got nil")
+	}
+	expectedMsg := "source path /home/user/file.txt is not a directory"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultSystem_RequireDir_Ok(t *testing.T) {
+	mock := &mockStdlib{
+		stat: func(name string) (os.FileInfo, error) {
+			mockFile := &mockFileInfo{
+				name:  "dir",
+				isDir: true,
+			}
+			return mockFile, nil
+		},
+	}
+	system := &DefaultSystem{stdlib: mock}
+
+	err := system.RequireDir("/home/user/dir")
+
+	if err != nil {
+		t.Errorf("expected no error when directory exists, got %v", err)
+	}
+}

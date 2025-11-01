@@ -3,6 +3,7 @@ package system
 import (
 	"os"
 	"os/exec"
+	"time"
 )
 
 // mockStdlib is a mock implementation of the stdlib interface
@@ -40,3 +41,19 @@ func (m *mockStdlib) ExecLookPath(file string) (string, error) {
 	}
 	return "", nil
 }
+
+// mockFileInfo is a mock implementation of os.FileInfo for testing
+type mockFileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+	isDir   bool
+}
+
+func (m *mockFileInfo) Name() string       { return m.name }
+func (m *mockFileInfo) Size() int64        { return m.size }
+func (m *mockFileInfo) Mode() os.FileMode  { return m.mode }
+func (m *mockFileInfo) ModTime() time.Time { return m.modTime }
+func (m *mockFileInfo) IsDir() bool        { return m.isDir }
+func (m *mockFileInfo) Sys() interface{}   { return nil }

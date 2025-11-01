@@ -35,6 +35,10 @@ func (m *mockSystem) RequireFilesInWd(filenames ...string) error {
 	return nil
 }
 
+func (m *mockSystem) RequireDir(path string) error {
+	return nil
+}
+
 // Test that ComposeStart with no services runs: docker compose up -d
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	var capturedName string
