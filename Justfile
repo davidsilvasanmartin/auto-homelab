@@ -50,9 +50,13 @@ fix-perms:
     echo ${UID_CURR}; \
     echo ${GID_CURR};
 
-# [🧪 DEV] Runs the tests of Python scripts
+# [🧪 DEV] Runs the tests of Go scripts
 dev-test:
     go test ./...
+
+# [🧪 DEV] Runs the tests of Go scripts, ignoring cache
+dev-test-no-cache:
+    go test ./... -count=1
 
 # TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
 # [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`
@@ -77,7 +81,7 @@ dev-check-types:
 
 # [🧪 DEV] Format all files
 dev-fmt:
-    {{uv}} run ruff format .
+    go fmt ./...
 
 # [🧪 DEV] Explains a linting rule. Example: `just dev-explain F401`
 dev-explain linting-rule:

@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 	"log/slog"
 	"os"
+
+	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 
 	"github.com/spf13/cobra"
 )
@@ -44,38 +45,3 @@ func startServices(dockerRunner docker.Runner, services ...string) error {
 
 	return nil
 }
-
-// TODO CHECK THIS CODE
-/**
-// parseDockerComposeError provides better error messages for common docker compose failures
-func parseDockerComposeError(err error, services []string) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		// Docker compose failed with a non-zero exit code
-		stderr := string(exitErr.Stderr)
-
-		// Check for common error patterns
-		switch {
-		case strings.Contains(stderr, "no such service"):
-			if len(services) > 0 {
-				return fmt.Errorf("service '%s' not found in docker-compose.yml", services[0])
-			}
-			return fmt.Errorf("service not found in docker-compose.yml")
-
-		case strings.Contains(stderr, "variable is not set"):
-			return fmt.Errorf("missing required environment variable (check your .env file): %w", err)
-
-		case strings.Contains(stderr, "Cannot connect to the Docker daemon"):
-			return fmt.Errorf("cannot connect to Docker daemon (is Docker running?): %w", err)
-
-		case strings.Contains(stderr, "docker-compose.yml"):
-			return fmt.Errorf("docker-compose.yml file issue: %w", err)
-
-		default:
-			return fmt.Errorf("docker compose failed: %w", err)
-		}
-	}
-
-	return fmt.Errorf("failed to execute docker compose: %w", err)
-}
-*/

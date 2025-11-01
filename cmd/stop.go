@@ -3,8 +3,8 @@ package cmd
 import (
 	"log/slog"
 	"os"
-	"os/exec"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 	"github.com/spf13/cobra"
 )
 
@@ -17,38 +17,22 @@ var stopCmd = &cobra.Command{
 	Short: "Stops services (or all services if none specified)",
 	Long:  "Stops services in your homelab. If no service is provided, this would stop all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return stopServices(args...)
+		dockerRunner := docker.NewSystemRunner(os.Stdout, os.Stderr)
+		return stopServices(dockerRunner, args...)
 	},
 }
 
 // stopServices stops services by using docker compose.
 // If the service is empty, stops all services
-func stopServices(services ...string) error {
+func stopServices(dockerRunner docker.Runner, services ...string) error {
 	if len(services) == 0 {
 		slog.Info("Stopping all services...")
 	} else {
 		slog.Info("Stopping services", "services", services)
 	}
 
-	//if err := require.RequireDocker(); err != nil {
-	//	return err
-	//}
-
-	args := []string{"compose", "stop"}
-	args = append(args, services...)
-
-	cmd := exec.Command("docker", args...)
-	// Capture both stdout and stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	slog.Debug("Executing docker compose command",
-		"command", "docker",
-		"args", args,
-		"dir", cmd.Dir,
-	)
-
-	if err := cmd.Run(); err != nil {
+	err := dockerRunner.ComposeStop(services)
+	if err != nil {
 		return err
 	}
 
