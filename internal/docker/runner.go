@@ -1,50 +1,48 @@
 package docker
 
 import (
-	"auto-homelab/internal/system"
+	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 	"io"
 	"log/slog"
-	"os/exec"
 )
 
-// DockerRunner is the interface for running docker commands
-type DockerRunner interface {
+// Runner is the interface for running docker commands
+type Runner interface {
 	ComposeStart(services []string) error
 }
 
-// SystemDockerRunner implements DockerRunner using actual system calls
-type SystemDockerRunner struct {
-	stdout      io.Writer
-	stderr      io.Writer
-	execCommand func(name string, arg ...string) *exec.Cmd
-	files       system.System
+// SystemRunner implements the Docker Runner using system calls
+type SystemRunner struct {
+	stdout io.Writer
+	stderr io.Writer
+	system system.System
 }
 
-// NewSystemDockerRunner creates a new SystemDockerRunner with stdout and stderr
-func NewSystemDockerRunner(stdout io.Writer, stderr io.Writer) *SystemDockerRunner {
-	return &SystemDockerRunner{
-		stdout:      stdout,
-		stderr:      stderr,
-		execCommand: exec.Command,
-		files:       system.NewDefaultSystem(),
+// NewSystemRunner creates a new SystemRunner with stdout and stderr
+func NewSystemRunner(stdout io.Writer, stderr io.Writer) *SystemRunner {
+	return &SystemRunner{
+		stdout: stdout,
+		stderr: stderr,
+		system: system.NewDefaultSystem(),
 	}
 }
 
 // ComposeStart starts services by using the system's docker compose command
-func (r *SystemDockerRunner) ComposeStart(services []string) error {
-	if err := r.require.RequireDocker(); err != nil {
+func (r *SystemRunner) ComposeStart(services []string) error {
+	if err := r.system.RequireCommand("docker"); err != nil {
 		return err
 	}
-	if err := r.files.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
+	if err := r.system.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
 		return err
 	}
 
 	args := []string{"compose", "up", "-d"}
 	args = append(args, services...)
 
-	cmd := r.execCommand("docker", args...)
+	cmd := r.system.ExecCommand("docker", args...)
 	cmd.Stdout = r.stdout
 	cmd.Stderr = r.stderr
+	cmd.Dir = "."
 
 	slog.Debug("Executing docker compose command",
 		"command", "docker",

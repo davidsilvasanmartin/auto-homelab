@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"auto-homelab/internal/require"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -31,9 +30,9 @@ func stopServices(services ...string) error {
 		slog.Info("Stopping services", "services", services)
 	}
 
-	if err := require.RequireDocker(); err != nil {
-		return err
-	}
+	//if err := require.RequireDocker(); err != nil {
+	//	return err
+	//}
 
 	args := []string{"compose", "stop"}
 	args = append(args, services...)

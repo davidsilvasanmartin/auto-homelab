@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"auto-homelab/cmd"
+	"github.com/davidsilvasanmartin/auto-homelab/cmd"
 )
 
 func main() {
