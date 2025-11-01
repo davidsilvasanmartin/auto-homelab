@@ -1,7 +1,7 @@
 package docker
 
 import (
-	"auto-homelab/internal/files"
+	"auto-homelab/internal/system"
 	"io"
 	"log/slog"
 	"os/exec"
@@ -17,7 +17,7 @@ type SystemDockerRunner struct {
 	stdout      io.Writer
 	stderr      io.Writer
 	execCommand func(name string, arg ...string) *exec.Cmd
-	files       files.Files
+	files       system.System
 }
 
 // NewSystemDockerRunner creates a new SystemDockerRunner with stdout and stderr
@@ -26,7 +26,7 @@ func NewSystemDockerRunner(stdout io.Writer, stderr io.Writer) *SystemDockerRunn
 		stdout:      stdout,
 		stderr:      stderr,
 		execCommand: exec.Command,
-		files:       files.NewDefaultFiles(),
+		files:       system.NewDefaultSystem(),
 	}
 }
 

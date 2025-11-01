@@ -1,4 +1,4 @@
-package files
+package system
 
 import (
 	"errors"
@@ -7,23 +7,27 @@ import (
 	"strings"
 )
 
-type Files interface {
+type System interface {
+	// TODO IMPLEMENT
+	RequireCommand(command string) error
+	// Wraps os.ExecCommand
+	ExecCommand(command string) error
 	RequireFilesInWd(filenames ...string) error
 }
 
-type DefaultFiles struct {
+type DefaultSystem struct {
 	fs fs
 }
 
-func NewDefaultFiles() *DefaultFiles {
-	return &DefaultFiles{
+func NewDefaultSystem() *DefaultSystem {
+	return &DefaultSystem{
 		fs: osFs{},
 	}
 }
 
 // RequireFilesInWd requires that certain files exist in the
 // current working directory
-func (f *DefaultFiles) RequireFilesInWd(filenames ...string) error {
+func (f *DefaultSystem) RequireFilesInWd(filenames ...string) error {
 	if len(filenames) == 0 {
 		return nil
 	}
