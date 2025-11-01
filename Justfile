@@ -52,7 +52,7 @@ fix-perms:
 
 # [🧪 DEV] Runs the tests of Python scripts
 dev-test:
-    {{uv}} run --env-file=.env -m pytest scripts/tests
+    go test ./...
 
 # TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
 # [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`

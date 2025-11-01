@@ -39,7 +39,7 @@ func initLogger(level string) error {
 	case "error":
 		logLevelVar = slog.LevelError
 	default:
-		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)")
+		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)", level)
 	}
 
 	opts := &slog.HandlerOptions{
