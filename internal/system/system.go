@@ -15,6 +15,8 @@ type System interface {
 	ExecCommand(name string, arg ...string) *exec.Cmd
 	// RequireFilesInWd requires that the files exist in the current working directory, or errors if they don't
 	RequireFilesInWd(filenames ...string) error
+	// RequireDir requires that a directory exists
+	RequireDir(path string) error
 }
 
 type DefaultSystem struct {
@@ -65,5 +67,16 @@ func (s *DefaultSystem) RequireFilesInWd(filenames ...string) error {
 		return fmt.Errorf("required filenames not found: %s", strings.Join(missingFiles, ", "))
 	}
 
+	return nil
+}
+
+func (s *DefaultSystem) RequireDir(path string) error {
+	if stat, err := s.stdlib.Stat(path); err != nil && errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("required directory not found: %s", path)
+	} else if err != nil {
+		return fmt.Errorf("failed to check file %s: %w", path, err)
+	} else if !stat.IsDir() {
+		return fmt.Errorf("source path %s is not a directory", path)
+	}
 	return nil
 }
