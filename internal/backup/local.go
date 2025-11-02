@@ -20,14 +20,16 @@ type BaseBackup struct {
 	outputPath string
 	commands   system.Commands
 	files      system.FilesHandler
+	env        system.Env
 }
 
 // NewBaseBackup creates a new base backup instance
-func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler) *BaseBackup {
+func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler, env system.Env) *BaseBackup {
 	return &BaseBackup{
 		outputPath: outputPath,
 		commands:   commands,
 		files:      files,
+		env:        env,
 	}
 }
 
@@ -40,9 +42,15 @@ type DirectoryBackup struct {
 }
 
 // NewDirectoryBackup creates a new directory backup instance
-func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, commands system.Commands, files system.FilesHandler) *DirectoryBackup {
+func NewDirectoryBackup(
+	sourcePath, outputPath string,
+	preCommand, postCommand string,
+	commands system.Commands,
+	files system.FilesHandler,
+	env system.Env,
+) *DirectoryBackup {
 	return &DirectoryBackup{
-		BaseBackup:  NewBaseBackup(outputPath, commands, files),
+		BaseBackup:  NewBaseBackup(outputPath, commands, files, env),
 		sourcePath:  sourcePath,
 		preCommand:  preCommand,
 		postCommand: postCommand,
@@ -65,16 +73,13 @@ func (d *DirectoryBackup) Run() (string, error) {
 		slog.Info("Successfully ran pre-command")
 	}
 
-	// Check if source exists and is a directory
 	if err := d.files.RequireDir(d.sourcePath); err != nil {
 		return "", err
 	}
 
-	slog.Info("Copying directory", "sourcePath", d.sourcePath, "outputPath", d.outputPath)
-	if err := copyDir(d.sourcePath, d.outputPath); err != nil {
-		return "", fmt.Errorf("failed to copy directory: %w", err)
+	if err := d.files.CopyDir(d.sourcePath, d.outputPath); err != nil {
+		return "", err
 	}
-	slog.Info("Successfully copied directory", "sourcePath", d.sourcePath, "outputPath", d.outputPath)
 
 	if d.postCommand != "" {
 		slog.Info("Running post-command", "postCommand", d.postCommand)

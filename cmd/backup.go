@@ -26,7 +26,10 @@ var backupLocalCmd = &cobra.Command{
 	Use:   "local",
 	Short: "Create a local backup of all services' data",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runBackupLocal()
+		commands := system.NewDefaultCommands()
+		files := system.NewDefaultFilesHandler()
+		env := system.NewDefaultEnv()
+		return runBackupLocal(commands, files, env)
 	},
 }
 
@@ -39,13 +42,11 @@ var backupCloudCmd = &cobra.Command{
 	},
 }
 
-func runBackupLocal() error {
+func runBackupLocal(commands system.Commands, files system.FilesHandler, env system.Env) error {
 	slog.Info("Creating local backup...")
-	commands := system.NewDefaultCommands()
-	files := system.NewDefaultFilesHandler()
 
 	// Get the main backup directory path
-	mainBackupDir, err := backup.GetRequiredEnv("HOMELAB_BACKUP_PATH")
+	mainBackupDir, err := env.GetRequiredEnv("HOMELAB_BACKUP_PATH")
 	if err != nil {
 		return fmt.Errorf("failed to get backup path: %w", err)
 	}
@@ -56,12 +57,13 @@ func runBackupLocal() error {
 	}
 
 	// Define backup operations
-	backupOperations, err := createBackupOperations(mainBackupDir, commands, files)
+	backupOperations, err := createBackupOperations(mainBackupDir, commands, files, env)
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
 
 	// Run all backup operations
+	// TODO change this code so that operations are run concurrently
 	for _, operation := range backupOperations {
 		if _, err := operation.Run(); err != nil {
 			return fmt.Errorf("backup operation failed: %w", err)
@@ -71,10 +73,10 @@ func runBackupLocal() error {
 	return nil
 }
 
-func createBackupOperations(mainBackupDir string, commands system.Commands, files system.FilesHandler) ([]backup.Backup, error) {
+func createBackupOperations(mainBackupDir string, commands system.Commands, files system.FilesHandler, env system.Env) ([]backup.Backup, error) {
 	// Helper function to get required env variables with better error context
 	getEnv := func(key string) (string, error) {
-		val, err := backup.GetRequiredEnv(key)
+		val, err := env.GetRequiredEnv(key)
 		if err != nil {
 			return "", fmt.Errorf("failed to get %s: %w", key, err)
 		}
@@ -150,6 +152,7 @@ func createBackupOperations(mainBackupDir string, commands system.Commands, file
 			"",
 			commands,
 			files,
+			env,
 		),
 
 		backup.NewDirectoryBackup(
@@ -159,6 +162,7 @@ func createBackupOperations(mainBackupDir string, commands system.Commands, file
 			"docker compose start calibre",
 			commands,
 			files,
+			env,
 		),
 
 		backup.NewDirectoryBackup(
@@ -168,6 +172,7 @@ func createBackupOperations(mainBackupDir string, commands system.Commands, file
 			"", // no post-command
 			commands,
 			files,
+			env,
 		),
 
 		// TODO

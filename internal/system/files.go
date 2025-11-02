@@ -18,6 +18,8 @@ type FilesHandler interface {
 	RequireDir(path string) error
 	// EmptyDir empties a directory. The directory must exist
 	EmptyDir(path string) error
+	// CopyDir copies a directory, from srcPath into dstPath
+	CopyDir(srcPath string, dstPath string) error
 }
 
 const (
@@ -105,5 +107,15 @@ func (d *DefaultFilesHandler) EmptyDir(path string) error {
 	}
 
 	slog.Info("Directory emptied successfully", "path", path)
+	return nil
+}
+
+func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
+	slog.Info("Copying directory", "sourcePath", srcPath, "outputPath", dstPath)
+	cmd := d.stdlib.ExecCommand("cp", "-r", srcPath, dstPath)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy directory: %w", err)
+	}
+	slog.Info("Successfully copied directory", "sourcePath", srcPath, "outputPath", dstPath)
 	return nil
 }
