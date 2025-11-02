@@ -1,28 +1,39 @@
 package docker
 
 import (
-	"bytes"
-	"os/exec"
 	"testing"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 	"github.com/google/go-cmp/cmp"
 )
 
-type mockSystem struct {
-	requireCommand func(command string) error
-	execCommand    func(name string, arg ...string) *exec.Cmd
+// mockRunnableCommand is a simple mock for RunnableCommand
+type mockRunnableCommand struct {
+	runFunc func() error
 }
 
-func (m *mockSystem) RequireCommand(command string) error {
-	if m.requireCommand != nil {
-		return m.requireCommand(command)
+func (m *mockRunnableCommand) Run() error {
+	if m.runFunc != nil {
+		return m.runFunc()
 	}
 	return nil
 }
 
-func (m *mockSystem) ExecCommand(name string, arg ...string) *exec.Cmd {
+type mockCommands struct {
+	execCommand      func(name string, arg ...string) system.RunnableCommand
+	execShellCommand func(command string) system.RunnableCommand
+}
+
+func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCommand {
 	if m.execCommand != nil {
 		return m.execCommand(name, arg...)
+	}
+	return nil
+}
+
+func (m *mockCommands) ExecShellCommand(command string) system.RunnableCommand {
+	if m.execShellCommand != nil {
+		return m.execShellCommand(command)
 	}
 	return nil
 }
@@ -58,21 +69,19 @@ func (m *mockFiles) RequireDir(path string) error {
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	system := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	commands := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
 			// This creates a command but doesn't execute it
 			// When Run() is called, it just runs "echo" which is harmless and fast
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: system,
-		files:  files,
+		commands: commands,
+		files:    files,
 	}
 
 	err := runner.ComposeStart([]string{})
@@ -93,19 +102,17 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	system := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	commands := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: system,
-		files:  files,
+		commands: commands,
+		files:    files,
 	}
 
 	err := runner.ComposeStart([]string{"service"})
@@ -126,19 +133,17 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	mock := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: mock,
-		files:  files,
+		commands: mock,
+		files:    files,
 	}
 
 	err := runner.ComposeStart([]string{"service1", "service2"})
@@ -159,21 +164,19 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	mock := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
 			// This creates a command but doesn't execute it
 			// When Run() is called, it just runs "echo" which is harmless and fast
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: mock,
-		files:  files,
+		commands: mock,
+		files:    files,
 	}
 
 	err := runner.ComposeStop([]string{})
@@ -194,19 +197,17 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	mock := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: mock,
-		files:  files,
+		commands: mock,
+		files:    files,
 	}
 
 	err := runner.ComposeStop([]string{"service"})
@@ -227,19 +228,17 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
-		execCommand: func(name string, arg ...string) *exec.Cmd {
+	mock := &mockCommands{
+		execCommand: func(name string, arg ...string) system.RunnableCommand {
 			capturedName = name
 			capturedArgs = arg
-			return exec.Command("echo", "test")
+			return &mockRunnableCommand{}
 		},
 	}
 	files := &mockFiles{}
 	runner := &SystemRunner{
-		stdout: &bytes.Buffer{},
-		stderr: &bytes.Buffer{},
-		system: mock,
-		files:  files,
+		commands: mock,
+		files:    files,
 	}
 
 	err := runner.ComposeStop([]string{"service1", "service2"})

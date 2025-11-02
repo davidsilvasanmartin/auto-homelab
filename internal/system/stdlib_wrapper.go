@@ -5,6 +5,10 @@ import (
 	"os/exec"
 )
 
+type RunnableCommand interface {
+	Run() error
+}
+
 // stdlib defines the os operations we NEED. Wraps go std lib functions
 type stdlib interface {
 	// Getwd wraps os.Getwd
@@ -12,7 +16,7 @@ type stdlib interface {
 	// Stat wraps os.Stat
 	Stat(name string) (os.FileInfo, error)
 	// ExecCommand wraps exec.Cmd
-	ExecCommand(name string, arg ...string) *exec.Cmd
+	ExecCommand(name string, arg ...string) RunnableCommand
 	// ExecLookPath wraps exec.LookPath
 	ExecLookPath(file string) (string, error)
 	// MkdirAll wraps os.MkdirAll
@@ -35,8 +39,14 @@ func (*goStdlib) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
 }
 
-func (*goStdlib) ExecCommand(name string, arg ...string) *exec.Cmd {
-	return exec.Command(name, arg...)
+// ExecCommand uses the system's os.Stdout and os.Stderr. It uses the current working directory
+// as the directory where the commands are run from
+func (*goStdlib) ExecCommand(name string, arg ...string) RunnableCommand {
+	cmd := exec.Command(name, arg...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = "."
+	return cmd
 }
 
 func (*goStdlib) ExecLookPath(file string) (string, error) {

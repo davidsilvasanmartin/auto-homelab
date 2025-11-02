@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"io"
 	"log/slog"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
@@ -13,25 +12,21 @@ type Runner interface {
 	ComposeStop(services []string) error
 }
 
-// SystemRunner implements the Docker Runner using system calls
+// SystemRunner implements the Docker Runner using system commands calls
 type SystemRunner struct {
-	stdout io.Writer
-	stderr io.Writer
-	system system.System
-	files  system.FilesHandler
+	commands system.Commands
+	files    system.FilesHandler
 }
 
-// NewSystemRunner creates a new SystemRunner with stdout and stderr
-func NewSystemRunner(stdout io.Writer, stderr io.Writer) *SystemRunner {
+// NewSystemRunner creates a new Docker SystemRunner
+func NewSystemRunner() *SystemRunner {
 	return &SystemRunner{
-		stdout: stdout,
-		stderr: stderr,
-		system: system.NewDefaultSystem(),
-		files:  system.NewDefaultFilesHandler(),
+		commands: system.NewDefaultCommands(),
+		files:    system.NewDefaultFilesHandler(),
 	}
 }
 
-// ComposeStart starts services by using the system's docker compose command
+// ComposeStart starts services by using the commands's docker compose command
 func (r *SystemRunner) ComposeStart(services []string) error {
 	allArgs := append([]string{"up", "-d"}, services...)
 	return r.executeComposeCommand(allArgs...)
@@ -43,23 +38,16 @@ func (r *SystemRunner) ComposeStop(services []string) error {
 }
 
 func (r *SystemRunner) executeComposeCommand(args ...string) error {
-	if err := r.system.RequireCommand("docker"); err != nil {
-		return err
-	}
 	if err := r.files.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
 		return err
 	}
 
 	allArgs := append([]string{"compose"}, args...)
-	cmd := r.system.ExecCommand("docker", allArgs...)
-	cmd.Stdout = r.stdout
-	cmd.Stderr = r.stderr
-	cmd.Dir = "."
+	cmd := r.commands.ExecCommand("docker", allArgs...)
 
 	slog.Debug("Executing docker compose command",
 		"command", "docker",
 		"args", args,
-		"dir", cmd.Dir,
 	)
 
 	return cmd.Run()

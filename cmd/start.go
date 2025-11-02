@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"log/slog"
-	"os"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 
@@ -18,7 +17,7 @@ var startCmd = &cobra.Command{
 	Short: "Start services (or all services if none specified)",
 	Long:  "Starts services in your homelab. If no service is provided, this would start all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := docker.NewSystemRunner(os.Stdout, os.Stderr)
+		runner := docker.NewSystemRunner()
 		return startServices(runner, args...)
 	},
 }

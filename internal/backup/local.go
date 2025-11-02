@@ -20,17 +20,17 @@ type Backup interface {
 // BaseBackup contains common backup functionality
 type BaseBackup struct {
 	outputPath string
-	system     system.System
+	commands   system.Commands
 	files      system.FilesHandler
 	stdout     io.Writer
 	stderr     io.Writer
 }
 
 // NewBaseBackup creates a new base backup instance
-func NewBaseBackup(outputPath string, sys system.System, files system.FilesHandler, stdout, stderr io.Writer) *BaseBackup {
+func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler, stdout, stderr io.Writer) *BaseBackup {
 	return &BaseBackup{
 		outputPath: outputPath,
-		system:     sys,
+		commands:   commands,
 		files:      files,
 		stdout:     stdout,
 		stderr:     stderr,
@@ -54,21 +54,13 @@ type DirectoryBackup struct {
 }
 
 // NewDirectoryBackup creates a new directory backup instance
-func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, sys system.System, files system.FilesHandler, stdout, stderr io.Writer) *DirectoryBackup {
+func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, sys system.Commands, files system.FilesHandler, stdout, stderr io.Writer) *DirectoryBackup {
 	return &DirectoryBackup{
 		BaseBackup:  NewBaseBackup(outputPath, sys, files, stdout, stderr),
 		sourcePath:  sourcePath,
 		preCommand:  preCommand,
 		postCommand: postCommand,
 	}
-}
-
-// runShellCommand executes a shell command
-func (d *DirectoryBackup) runShellCommand(command string) error {
-	cmd := d.system.ExecCommand("sh", "-c", command)
-	cmd.Stdout = d.stdout
-	cmd.Stderr = d.stderr
-	return cmd.Run()
 }
 
 // Run executes the directory backup operation
@@ -80,7 +72,8 @@ func (d *DirectoryBackup) Run() (string, error) {
 	// Run pre-command if provided
 	if d.preCommand != "" {
 		slog.Info("Running pre-command", "preCommand", d.preCommand)
-		if err := d.runShellCommand(d.preCommand); err != nil {
+		cmd := d.commands.ExecShellCommand(d.preCommand)
+		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("pre-command failed: %w", err)
 		}
 		slog.Info("Successfully ran pre-command")
@@ -99,7 +92,8 @@ func (d *DirectoryBackup) Run() (string, error) {
 
 	if d.postCommand != "" {
 		slog.Info("Running post-command", "postCommand", d.postCommand)
-		if err := d.runShellCommand(d.postCommand); err != nil {
+		cmd := d.commands.ExecShellCommand(d.postCommand)
+		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("post-command failed: %w", err)
 		}
 		slog.Info("Successfully ran post-command")
@@ -121,7 +115,7 @@ type PostgreSQLBackup struct {
 }
 
 // NewPostgreSQLBackup creates a new PostgreSQL backup instance
-func NewPostgreSQLBackup(containerName, dbName, username, password, outputPath string, sys system.System, stdout, stderr io.Writer) *PostgreSQLBackup {
+func NewPostgreSQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *PostgreSQLBackup {
 	return &PostgreSQLBackup{
 		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
@@ -152,7 +146,7 @@ func (p *PostgreSQLBackup) Run() (string, error) {
 
 	fmt.Fprintf(p.stdout, "Running backup command for database %s in container %s\n", p.dbName, p.containerName)
 
-	cmd := p.system.ExecCommand("sh", "-c", dockerCommand)
+	cmd := p.commands.ExecCommand("sh", "-c", dockerCommand)
 	cmd.Stdout = p.stdout
 	cmd.Stderr = p.stderr
 
@@ -174,7 +168,7 @@ type MySQLBackup struct {
 }
 
 // NewMySQLBackup creates a new MySQL backup instance
-func NewMySQLBackup(containerName, dbName, username, password, outputPath string, sys system.System, stdout, stderr io.Writer) *MySQLBackup {
+func NewMySQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MySQLBackup {
 	return &MySQLBackup{
 		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
@@ -205,7 +199,7 @@ func (m *MySQLBackup) Run() (string, error) {
 
 	fmt.Fprintf(m.stdout, "Running backup command for database %s in container %s\n", m.dbName, m.containerName)
 
-	cmd := m.system.ExecCommand("sh", "-c", dockerCommand)
+	cmd := m.commands.ExecCommand("sh", "-c", dockerCommand)
 	cmd.Stdout = m.stdout
 	cmd.Stderr = m.stderr
 
@@ -227,7 +221,7 @@ type MariaDBBackup struct {
 }
 
 // NewMariaDBBackup creates a new MariaDB backup instance
-func NewMariaDBBackup(containerName, dbName, username, password, outputPath string, sys system.System, stdout, stderr io.Writer) *MariaDBBackup {
+func NewMariaDBBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MariaDBBackup {
 	return &MariaDBBackup{
 		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
@@ -258,7 +252,7 @@ func (m *MariaDBBackup) Run() (string, error) {
 
 	fmt.Fprintf(m.stdout, "Running backup command for MariaDB database %s in container %s\n", m.dbName, m.containerName)
 
-	cmd := m.system.ExecCommand("sh", "-c", dockerCommand)
+	cmd := m.commands.ExecCommand("sh", "-c", dockerCommand)
 	cmd.Stdout = m.stdout
 	cmd.Stderr = m.stderr
 

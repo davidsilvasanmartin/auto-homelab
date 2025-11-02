@@ -2,15 +2,26 @@ package system
 
 import (
 	"os"
-	"os/exec"
 	"time"
 )
+
+// mockRunnableCommand is a simple mock for RunnableCommand
+type mockRunnableCommand struct {
+	runFunc func() error
+}
+
+func (m *mockRunnableCommand) Run() error {
+	if m.runFunc != nil {
+		return m.runFunc()
+	}
+	return nil
+}
 
 // mockStdlib is a mock implementation of the stdlib interface
 type mockStdlib struct {
 	getwd        func() (string, error)
 	stat         func(name string) (os.FileInfo, error)
-	execCommand  func(name string, arg ...string) *exec.Cmd
+	execCommand  func(name string, arg ...string) RunnableCommand
 	execLookPath func(file string) (string, error)
 	mkdirAll     func(path string, mode os.FileMode) error
 }
@@ -29,7 +40,7 @@ func (m *mockStdlib) Stat(name string) (os.FileInfo, error) {
 	return nil, nil
 }
 
-func (m *mockStdlib) ExecCommand(name string, arg ...string) *exec.Cmd {
+func (m *mockStdlib) ExecCommand(name string, arg ...string) RunnableCommand {
 	if m.execCommand != nil {
 		return m.execCommand(name, arg...)
 	}
