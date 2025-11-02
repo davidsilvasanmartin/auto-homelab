@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/backup"
@@ -26,7 +25,9 @@ var backupCmd = &cobra.Command{
 var backupLocalCmd = &cobra.Command{
 	Use:   "local",
 	Short: "Create a local backup of all services' data",
-	RunE:  runBackupLocal,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runBackupLocal()
+	},
 }
 
 var backupCloudCmd = &cobra.Command{
@@ -38,12 +39,10 @@ var backupCloudCmd = &cobra.Command{
 	},
 }
 
-func runBackupLocal(cmd *cobra.Command, args []string) error {
+func runBackupLocal() error {
 	slog.Info("Creating local backup...")
-	sys := system.NewDefaultCommands()
+	commands := system.NewDefaultCommands()
 	files := system.NewDefaultFilesHandler()
-	stdout := os.Stdout
-	stderr := os.Stderr
 
 	// Get the main backup directory path
 	mainBackupDir, err := backup.GetRequiredEnv("HOMELAB_BACKUP_PATH")
@@ -52,12 +51,12 @@ func runBackupLocal(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare the main backup directory
-	if err := backup.PrepareBackupDirectory(mainBackupDir, stdout); err != nil {
+	if err := backup.PrepareBackupDirectory(mainBackupDir); err != nil {
 		return fmt.Errorf("failed to prepare backup directory: %w", err)
 	}
 
 	// Define backup operations
-	backupOperations, err := createBackupOperations(mainBackupDir, sys, files, stdout, stderr)
+	backupOperations, err := createBackupOperations(mainBackupDir, commands, files)
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
@@ -72,7 +71,7 @@ func runBackupLocal(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createBackupOperations(mainBackupDir string, sys system.Commands, files system.FilesHandler, stdout, stderr *os.File) ([]backup.Backup, error) {
+func createBackupOperations(mainBackupDir string, commands system.Commands, files system.FilesHandler) ([]backup.Backup, error) {
 	// Helper function to get required env variables with better error context
 	getEnv := func(key string) (string, error) {
 		val, err := backup.GetRequiredEnv(key)
@@ -149,10 +148,8 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 			filepath.Join(mainBackupDir, "calibre-web-automated-calibre-library"),
 			"",
 			"",
-			sys,
+			commands,
 			files,
-			stdout,
-			stderr,
 		),
 
 		backup.NewDirectoryBackup(
@@ -160,10 +157,8 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 			filepath.Join(mainBackupDir, "calibre-web-automated-config"),
 			"docker compose stop calibre",
 			"docker compose start calibre",
-			sys,
+			commands,
 			files,
-			stdout,
-			stderr,
 		),
 
 		backup.NewDirectoryBackup(
@@ -171,10 +166,8 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 			filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
 			"docker compose start paperless-redis paperless-db paperless && docker compose exec -T paperless document_exporter -d ../export",
 			"", // no post-command
-			sys,
+			commands,
 			files,
-			stdout,
-			stderr,
 		),
 
 		// TODO
@@ -184,9 +177,7 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 		//	immichDBUser,
 		//	immichDBPassword,
 		//	filepath.Join(mainBackupDir, "immich-db"),
-		//	sys,
-		//	stdout,
-		//	stderr,
+		//	commands,
 		//),
 		//
 		//backup.NewDirectoryBackup(
@@ -194,9 +185,7 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 		//	filepath.Join(mainBackupDir, "immich-library"),
 		//	"", // no pre-command
 		//	"", // no post-command
-		//	sys,
-		//	stdout,
-		//	stderr,
+		//	commands,
 		//),
 		//
 		//backup.NewMariaDBBackup(
@@ -205,9 +194,7 @@ func createBackupOperations(mainBackupDir string, sys system.Commands, files sys
 		//	fireflyDBUser,
 		//	fireflyDBPassword,
 		//	filepath.Join(mainBackupDir, "firefly-db"),
-		//	sys,
-		//	stdout,
-		//	stderr,
+		//	commands,
 		//),
 	}
 

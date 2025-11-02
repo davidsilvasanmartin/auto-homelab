@@ -2,9 +2,7 @@ package backup
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
@@ -22,27 +20,15 @@ type BaseBackup struct {
 	outputPath string
 	commands   system.Commands
 	files      system.FilesHandler
-	stdout     io.Writer
-	stderr     io.Writer
 }
 
 // NewBaseBackup creates a new base backup instance
-func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler, stdout, stderr io.Writer) *BaseBackup {
+func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler) *BaseBackup {
 	return &BaseBackup{
 		outputPath: outputPath,
 		commands:   commands,
 		files:      files,
-		stdout:     stdout,
-		stderr:     stderr,
 	}
-}
-
-// prepareOutputDirectory ensures the output directory exists
-func (b *BaseBackup) prepareOutputDirectory() error {
-	if err := os.MkdirAll(b.outputPath, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory %s: %w", b.outputPath, err)
-	}
-	return nil
 }
 
 // DirectoryBackup handles directory copy operations
@@ -54,9 +40,9 @@ type DirectoryBackup struct {
 }
 
 // NewDirectoryBackup creates a new directory backup instance
-func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, sys system.Commands, files system.FilesHandler, stdout, stderr io.Writer) *DirectoryBackup {
+func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, commands system.Commands, files system.FilesHandler) *DirectoryBackup {
 	return &DirectoryBackup{
-		BaseBackup:  NewBaseBackup(outputPath, sys, files, stdout, stderr),
+		BaseBackup:  NewBaseBackup(outputPath, commands, files),
 		sourcePath:  sourcePath,
 		preCommand:  preCommand,
 		postCommand: postCommand,
@@ -65,7 +51,7 @@ func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand s
 
 // Run executes the directory backup operation
 func (d *DirectoryBackup) Run() (string, error) {
-	if err := d.prepareOutputDirectory(); err != nil {
+	if err := d.files.CreateDirIfNotExists(d.outputPath); err != nil {
 		return "", err
 	}
 

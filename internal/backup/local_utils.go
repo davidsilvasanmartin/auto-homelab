@@ -8,9 +8,12 @@ import (
 	"path/filepath"
 )
 
+// TODO move functionality in this file into `files.go`
+
 // PrepareBackupDirectory creates an empty backup directory by removing all existing contents
-func PrepareBackupDirectory(outputPath string, stdout io.Writer) error {
+func PrepareBackupDirectory(outputPath string) error {
 	// Create the directory if it doesn't exist
+	// TODO replace by files method
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
 		return fmt.Errorf("failed to create backup directory %s: %w", outputPath, err)
 	}
