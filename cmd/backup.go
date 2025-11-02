@@ -51,7 +51,7 @@ func runBackupLocal() error {
 	}
 
 	// Prepare the main backup directory
-	if err := backup.PrepareBackupDirectory(mainBackupDir); err != nil {
+	if err := files.EmptyDir(mainBackupDir); err != nil {
 		return fmt.Errorf("failed to prepare backup directory: %w", err)
 	}
 

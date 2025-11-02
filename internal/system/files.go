@@ -3,6 +3,7 @@ package system
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,8 @@ type FilesHandler interface {
 	RequireFilesInWd(filenames ...string) error
 	// RequireDir requires that a directory exists
 	RequireDir(path string) error
+	// EmptyDir empties a directory. The directory must exist
+	EmptyDir(path string) error
 }
 
 const (
@@ -73,6 +76,9 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 }
 
 func (d *DefaultFilesHandler) RequireDir(path string) error {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
+	}
 	if stat, err := d.stdlib.Stat(path); err != nil && errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("required directory not found: %s", path)
 	} else if err != nil {
@@ -80,5 +86,24 @@ func (d *DefaultFilesHandler) RequireDir(path string) error {
 	} else if !stat.IsDir() {
 		return fmt.Errorf("source path %s is not a directory", path)
 	}
+	return nil
+}
+
+func (d *DefaultFilesHandler) EmptyDir(path string) error {
+	slog.Info("Emptying directory", "path", path)
+
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
+	}
+
+	if err := d.stdlib.RemoveAll(path); err != nil {
+		return fmt.Errorf("error removing directory %q: %w", path, err)
+	}
+
+	if err := d.CreateDirIfNotExists(path); err != nil {
+		return err
+	}
+
+	slog.Info("Directory emptied successfully", "path", path)
 	return nil
 }

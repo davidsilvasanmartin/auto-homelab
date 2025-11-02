@@ -3,43 +3,11 @@ package backup
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 )
 
 // TODO move functionality in this file into `files.go`
-
-// PrepareBackupDirectory creates an empty backup directory by removing all existing contents
-func PrepareBackupDirectory(outputPath string) error {
-	// Create the directory if it doesn't exist
-	// TODO replace by files method
-	if err := os.MkdirAll(outputPath, 0755); err != nil {
-		return fmt.Errorf("failed to create backup directory %s: %w", outputPath, err)
-	}
-
-	slog.Info("Preparing backup directory", "outputPath", outputPath)
-
-	entries, err := os.ReadDir(outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to read directory %s: %w", outputPath, err)
-	}
-	for _, entry := range entries {
-		itemPath := filepath.Join(outputPath, entry.Name())
-		if err := os.RemoveAll(itemPath); err != nil {
-			return fmt.Errorf("error removing item %s from %s: %w", itemPath, outputPath, err)
-		}
-		if entry.IsDir() {
-			slog.Info("Removed sub-directory", "itemPath", itemPath)
-		} else {
-			slog.Info("Removed file/symlink", "itemPath", itemPath)
-		}
-	}
-
-	slog.Info("Successfully prepared backup directory", "outputPath", outputPath)
-
-	return nil
-}
 
 // GetRequiredEnv gets a required environment variable or returns an error
 func GetRequiredEnv(varName string) (string, error) {

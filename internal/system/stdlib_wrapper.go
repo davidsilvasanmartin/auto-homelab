@@ -21,6 +21,8 @@ type stdlib interface {
 	ExecLookPath(file string) (string, error)
 	// MkdirAll wraps os.MkdirAll
 	MkdirAll(path string, perm os.FileMode) error
+	// RemoveAll wraps os.RemoveAll
+	RemoveAll(path string) error
 }
 
 // goStdlib implements stdlib by using the real go's std
@@ -54,3 +56,5 @@ func (*goStdlib) ExecLookPath(file string) (string, error) {
 }
 
 func (*goStdlib) MkdirAll(path string, perm os.FileMode) error { return os.MkdirAll(path, perm) }
+
+func (*goStdlib) RemoveAll(path string) error { return os.RemoveAll(path) }

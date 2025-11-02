@@ -17,6 +17,22 @@ func (m *mockRunnableCommand) Run() error {
 	return nil
 }
 
+// mockFileInfo is a mock implementation of os.FileInfo for testing
+type mockFileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+	isDir   bool
+}
+
+func (m *mockFileInfo) Name() string       { return m.name }
+func (m *mockFileInfo) Size() int64        { return m.size }
+func (m *mockFileInfo) Mode() os.FileMode  { return m.mode }
+func (m *mockFileInfo) ModTime() time.Time { return m.modTime }
+func (m *mockFileInfo) IsDir() bool        { return m.isDir }
+func (m *mockFileInfo) Sys() interface{}   { return nil }
+
 // mockStdlib is a mock implementation of the stdlib interface
 type mockStdlib struct {
 	getwd        func() (string, error)
@@ -24,6 +40,7 @@ type mockStdlib struct {
 	execCommand  func(name string, arg ...string) RunnableCommand
 	execLookPath func(file string) (string, error)
 	mkdirAll     func(path string, mode os.FileMode) error
+	removeAll    func(path string) error
 }
 
 func (m *mockStdlib) Getwd() (string, error) {
@@ -61,18 +78,9 @@ func (m *mockStdlib) MkdirAll(path string, perm os.FileMode) error {
 	return nil
 }
 
-// mockFileInfo is a mock implementation of os.FileInfo for testing
-type mockFileInfo struct {
-	name    string
-	size    int64
-	mode    os.FileMode
-	modTime time.Time
-	isDir   bool
+func (m *mockStdlib) RemoveAll(path string) error {
+	if m.removeAll != nil {
+		return m.removeAll(path)
+	}
+	return nil
 }
-
-func (m *mockFileInfo) Name() string       { return m.name }
-func (m *mockFileInfo) Size() int64        { return m.size }
-func (m *mockFileInfo) Mode() os.FileMode  { return m.mode }
-func (m *mockFileInfo) ModTime() time.Time { return m.modTime }
-func (m *mockFileInfo) IsDir() bool        { return m.isDir }
-func (m *mockFileInfo) Sys() interface{}   { return nil }

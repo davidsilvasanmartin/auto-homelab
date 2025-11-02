@@ -42,6 +42,7 @@ type mockFiles struct {
 	createDirIfNotExists func(path string) error
 	requireFilesInWd     func(filenames ...string) error
 	requireDir           func(path string) error
+	emptyDir             func(path string) error
 }
 
 func (m *mockFiles) CreateDirIfNotExists(path string) error {
@@ -61,6 +62,13 @@ func (m *mockFiles) RequireFilesInWd(filenames ...string) error {
 func (m *mockFiles) RequireDir(path string) error {
 	if m.requireDir(path) != nil {
 		return m.requireDir(path)
+	}
+	return nil
+}
+
+func (m *mockFiles) EmptyDir(path string) error {
+	if m.emptyDir(path) != nil {
+		return m.emptyDir(path)
 	}
 	return nil
 }
