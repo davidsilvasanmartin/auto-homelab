@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"sync"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/backup"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
@@ -62,14 +63,30 @@ func runBackupLocal(commands system.Commands, files system.FilesHandler, env sys
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
 
-	// Run all backup operations
-	// TODO change this code so that operations are run concurrently
+	// Run all backup operations concurrently
+	// TODO review and understand this code (thanks Claude :))
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(backupOperations))
 	for _, operation := range backupOperations {
-		if _, err := operation.Run(); err != nil {
-			return fmt.Errorf("backup operation failed: %w", err)
+		wg.Add(1)
+		go func(op backup.Backup) {
+			defer wg.Done()
+			if _, err := op.Run(); err != nil {
+				errChan <- fmt.Errorf("backup operation failed: %w", err)
+			}
+		}(operation)
+	}
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errChan)
+	// Check if any errors occurred
+	for err := range errChan {
+		if err != nil {
+			return err
 		}
 	}
 
+	slog.Info("Local backup completed successfully")
 	return nil
 }
 

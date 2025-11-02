@@ -34,6 +34,11 @@ func NewBaseBackup(outputPath string, commands system.Commands, files system.Fil
 }
 
 // DirectoryBackup handles directory copy operations
+// ⚠️⚠️⚠️ WARNING!! preCommand and postCommand run concurrently. We need to keep this in mind when
+// writing Backup operations. E.g., we can't use preCommand="docker compose stop service"
+// and postCommand="docker compose start service" on several Backup operations, because
+// they will intermix and run in unspecified order
+// TODO to cater with this, we can create structs that group operations that require the pre or post commands affecting the same Docker container
 type DirectoryBackup struct {
 	*BaseBackup
 	sourcePath  string
