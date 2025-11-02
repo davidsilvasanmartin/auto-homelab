@@ -41,6 +41,7 @@ var backupCloudCmd = &cobra.Command{
 func runBackupLocal(cmd *cobra.Command, args []string) error {
 	slog.Info("Creating local backup...")
 	sys := system.NewDefaultSystem()
+	files := system.NewDefaultFilesHandler()
 	stdout := os.Stdout
 	stderr := os.Stderr
 
@@ -56,7 +57,7 @@ func runBackupLocal(cmd *cobra.Command, args []string) error {
 	}
 
 	// Define backup operations
-	backupOperations, err := createBackupOperations(mainBackupDir, sys, stdout, stderr)
+	backupOperations, err := createBackupOperations(mainBackupDir, sys, files, stdout, stderr)
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
@@ -71,7 +72,7 @@ func runBackupLocal(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createBackupOperations(mainBackupDir string, sys system.System, stdout, stderr *os.File) ([]backup.Backup, error) {
+func createBackupOperations(mainBackupDir string, sys system.System, files system.FilesHandler, stdout, stderr *os.File) ([]backup.Backup, error) {
 	// Helper function to get required env variables with better error context
 	getEnv := func(key string) (string, error) {
 		val, err := backup.GetRequiredEnv(key)
@@ -149,6 +150,7 @@ func createBackupOperations(mainBackupDir string, sys system.System, stdout, std
 			"",
 			"",
 			sys,
+			files,
 			stdout,
 			stderr,
 		),
@@ -159,6 +161,7 @@ func createBackupOperations(mainBackupDir string, sys system.System, stdout, std
 			"docker compose stop calibre",
 			"docker compose start calibre",
 			sys,
+			files,
 			stdout,
 			stderr,
 		),
@@ -169,6 +172,7 @@ func createBackupOperations(mainBackupDir string, sys system.System, stdout, std
 			"docker compose start paperless-redis paperless-db paperless && docker compose exec -T paperless document_exporter -d ../export",
 			"", // no post-command
 			sys,
+			files,
 			stdout,
 			stderr,
 		),

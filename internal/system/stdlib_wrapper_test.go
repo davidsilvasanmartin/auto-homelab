@@ -12,6 +12,7 @@ type mockStdlib struct {
 	stat         func(name string) (os.FileInfo, error)
 	execCommand  func(name string, arg ...string) *exec.Cmd
 	execLookPath func(file string) (string, error)
+	mkdirAll     func(path string, mode os.FileMode) error
 }
 
 func (m *mockStdlib) Getwd() (string, error) {
@@ -40,6 +41,13 @@ func (m *mockStdlib) ExecLookPath(file string) (string, error) {
 		return m.execLookPath(file)
 	}
 	return "", nil
+}
+
+func (m *mockStdlib) MkdirAll(path string, perm os.FileMode) error {
+	if m.mkdirAll != nil {
+		return m.mkdirAll(path, perm)
+	}
+	return nil
 }
 
 // mockFileInfo is a mock implementation of os.FileInfo for testing

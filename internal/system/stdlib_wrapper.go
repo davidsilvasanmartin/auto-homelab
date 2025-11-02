@@ -15,6 +15,8 @@ type stdlib interface {
 	ExecCommand(name string, arg ...string) *exec.Cmd
 	// ExecLookPath wraps exec.LookPath
 	ExecLookPath(file string) (string, error)
+	// MkdirAll wraps os.MkdirAll
+	MkdirAll(path string, perm os.FileMode) error
 }
 
 // goStdlib implements stdlib by using the real go's std
@@ -40,3 +42,5 @@ func (*goStdlib) ExecCommand(name string, arg ...string) *exec.Cmd {
 func (*goStdlib) ExecLookPath(file string) (string, error) {
 	return exec.LookPath(file)
 }
+
+func (*goStdlib) MkdirAll(path string, perm os.FileMode) error { return os.MkdirAll(path, perm) }

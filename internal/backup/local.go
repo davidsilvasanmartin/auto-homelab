@@ -21,15 +21,17 @@ type Backup interface {
 type BaseBackup struct {
 	outputPath string
 	system     system.System
+	files      system.FilesHandler
 	stdout     io.Writer
 	stderr     io.Writer
 }
 
 // NewBaseBackup creates a new base backup instance
-func NewBaseBackup(outputPath string, sys system.System, stdout, stderr io.Writer) *BaseBackup {
+func NewBaseBackup(outputPath string, sys system.System, files system.FilesHandler, stdout, stderr io.Writer) *BaseBackup {
 	return &BaseBackup{
 		outputPath: outputPath,
 		system:     sys,
+		files:      files,
 		stdout:     stdout,
 		stderr:     stderr,
 	}
@@ -52,9 +54,9 @@ type DirectoryBackup struct {
 }
 
 // NewDirectoryBackup creates a new directory backup instance
-func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, sys system.System, stdout, stderr io.Writer) *DirectoryBackup {
+func NewDirectoryBackup(sourcePath, outputPath string, preCommand, postCommand string, sys system.System, files system.FilesHandler, stdout, stderr io.Writer) *DirectoryBackup {
 	return &DirectoryBackup{
-		BaseBackup:  NewBaseBackup(outputPath, sys, stdout, stderr),
+		BaseBackup:  NewBaseBackup(outputPath, sys, files, stdout, stderr),
 		sourcePath:  sourcePath,
 		preCommand:  preCommand,
 		postCommand: postCommand,
@@ -85,7 +87,7 @@ func (d *DirectoryBackup) Run() (string, error) {
 	}
 
 	// Check if source exists and is a directory
-	if err := d.system.RequireDir(d.sourcePath); err != nil {
+	if err := d.files.RequireDir(d.sourcePath); err != nil {
 		return "", err
 	}
 

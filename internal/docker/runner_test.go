@@ -9,9 +9,8 @@ import (
 )
 
 type mockSystem struct {
-	requireCommand   func(command string) error
-	execCommand      func(name string, arg ...string) *exec.Cmd
-	requireFilesInWd func(filenames ...string) error
+	requireCommand func(command string) error
+	execCommand    func(name string, arg ...string) *exec.Cmd
 }
 
 func (m *mockSystem) RequireCommand(command string) error {
@@ -28,14 +27,30 @@ func (m *mockSystem) ExecCommand(name string, arg ...string) *exec.Cmd {
 	return nil
 }
 
-func (m *mockSystem) RequireFilesInWd(filenames ...string) error {
+type mockFiles struct {
+	createDirIfNotExists func(path string) error
+	requireFilesInWd     func(filenames ...string) error
+	requireDir           func(path string) error
+}
+
+func (m *mockFiles) CreateDirIfNotExists(path string) error {
+	if m.createDirIfNotExists != nil {
+		return m.createDirIfNotExists(path)
+	}
+	return nil
+}
+
+func (m *mockFiles) RequireFilesInWd(filenames ...string) error {
 	if m.requireFilesInWd != nil {
 		return m.requireFilesInWd(filenames...)
 	}
 	return nil
 }
 
-func (m *mockSystem) RequireDir(path string) error {
+func (m *mockFiles) RequireDir(path string) error {
+	if m.requireDir(path) != nil {
+		return m.requireDir(path)
+	}
 	return nil
 }
 
@@ -43,7 +58,7 @@ func (m *mockSystem) RequireDir(path string) error {
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
+	system := &mockSystem{
 		execCommand: func(name string, arg ...string) *exec.Cmd {
 			capturedName = name
 			capturedArgs = arg
@@ -52,10 +67,12 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
-		system: mock,
+		system: system,
+		files:  files,
 	}
 
 	err := runner.ComposeStart([]string{})
@@ -76,17 +93,19 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
-	mock := &mockSystem{
+	system := &mockSystem{
 		execCommand: func(name string, arg ...string) *exec.Cmd {
 			capturedName = name
 			capturedArgs = arg
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
-		system: mock,
+		system: system,
+		files:  files,
 	}
 
 	err := runner.ComposeStart([]string{"service"})
@@ -114,10 +133,12 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
 		system: mock,
+		files:  files,
 	}
 
 	err := runner.ComposeStart([]string{"service1", "service2"})
@@ -147,10 +168,12 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
 		system: mock,
+		files:  files,
 	}
 
 	err := runner.ComposeStop([]string{})
@@ -178,10 +201,12 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
 		system: mock,
+		files:  files,
 	}
 
 	err := runner.ComposeStop([]string{"service"})
@@ -209,10 +234,12 @@ func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 			return exec.Command("echo", "test")
 		},
 	}
+	files := &mockFiles{}
 	runner := &SystemRunner{
 		stdout: &bytes.Buffer{},
 		stderr: &bytes.Buffer{},
 		system: mock,
+		files:  files,
 	}
 
 	err := runner.ComposeStop([]string{"service1", "service2"})

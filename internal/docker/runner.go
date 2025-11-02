@@ -18,6 +18,7 @@ type SystemRunner struct {
 	stdout io.Writer
 	stderr io.Writer
 	system system.System
+	files  system.FilesHandler
 }
 
 // NewSystemRunner creates a new SystemRunner with stdout and stderr
@@ -26,6 +27,7 @@ func NewSystemRunner(stdout io.Writer, stderr io.Writer) *SystemRunner {
 		stdout: stdout,
 		stderr: stderr,
 		system: system.NewDefaultSystem(),
+		files:  system.NewDefaultFilesHandler(),
 	}
 }
 
@@ -44,7 +46,7 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 	if err := r.system.RequireCommand("docker"); err != nil {
 		return err
 	}
-	if err := r.system.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
+	if err := r.files.RequireFilesInWd("docker-compose.yml", ".env"); err != nil {
 		return err
 	}
 
