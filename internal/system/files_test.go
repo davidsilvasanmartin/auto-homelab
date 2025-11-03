@@ -4,11 +4,96 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestDefaultSystem_RequireFilesInWd_EmptyList(t *testing.T) {
-	mock := &mockStdlib{}
-	files := &DefaultFilesHandler{stdlib: mock}
+func TestDefaultFilesHandler_CreateDirIfNotExists_Success(t *testing.T) {
+	var createdPath string
+	var createdPerm os.FileMode
+	std := &mockStdlib{
+		mkdirAll: func(path string, mode os.FileMode) error {
+			createdPath = path
+			createdPerm = mode
+			return nil
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CreateDirIfNotExists("/home/user/newdir")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if createdPath != "/home/user/newdir" {
+		t.Errorf("expected path %q, got %q", "/home/user/newdir", createdPath)
+	}
+	if createdPerm != defaultDirPerms {
+		t.Errorf("expected permissions %o, got %o", defaultDirPerms, createdPerm)
+	}
+}
+
+func TestDefaultFilesHandler_CreateDirIfNotExists_PathNotAbs(t *testing.T) {
+	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
+
+	err := files.CreateDirIfNotExists("relative/path")
+
+	if err == nil {
+		t.Fatal("expected error when path is relative, got nil")
+	}
+	expectedMsg := "path is not absolute: \"relative/path\". Please use an absolute path"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultFilesHandler_CreateDirIfNotExists_CleansDirtyPath(t *testing.T) {
+	var createdPath string
+	std := &mockStdlib{
+		mkdirAll: func(path string, mode os.FileMode) error {
+			createdPath = path
+			return nil
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CreateDirIfNotExists("/home/user//./subdir/../newdir/")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	expectedPath := "/home/user/newdir"
+	if createdPath != expectedPath {
+		t.Errorf("expected cleaned path %q, got %q", expectedPath, createdPath)
+	}
+}
+
+func TestDefaultFilesHandler_CreateDirIfNotExists_MkdirAllError(t *testing.T) {
+	expectedErr := errors.New("permission denied")
+	std := &mockStdlib{
+		mkdirAll: func(path string, mode os.FileMode) error {
+			return expectedErr
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CreateDirIfNotExists("/home/user/restricteddir")
+
+	if err == nil {
+		t.Fatal("expected error when MkdirAll fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+	expectedMsg := "failed to create directory \"/home/user/restricteddir\": permission denied"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultFilesHandler_RequireFilesInWd_EmptyList(t *testing.T) {
+	std := &mockStdlib{}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd()
 
@@ -17,8 +102,8 @@ func TestDefaultSystem_RequireFilesInWd_EmptyList(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_AllFilesExist(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireFilesInWd_AllFilesExist(t *testing.T) {
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
 		},
@@ -27,7 +112,7 @@ func TestDefaultSystem_RequireFilesInWd_AllFilesExist(t *testing.T) {
 			return nil, nil
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd("file1.txt", "file2.go", "config.yml")
 
@@ -36,8 +121,8 @@ func TestDefaultSystem_RequireFilesInWd_AllFilesExist(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_SingleFileMissing(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
 		},
@@ -48,7 +133,7 @@ func TestDefaultSystem_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 			return nil, nil
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd("existing.txt", "missing.txt")
 
@@ -61,8 +146,8 @@ func TestDefaultSystem_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/project", nil
 		},
@@ -73,7 +158,7 @@ func TestDefaultSystem_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
 			return nil, nil
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd("file1.txt", "missing1.txt", "file2.txt", "missing2.txt")
 
@@ -86,14 +171,14 @@ func TestDefaultSystem_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_GetwdError(t *testing.T) {
+func TestDefaultFilesHandler_RequireFilesInWd_GetwdError(t *testing.T) {
 	expectedErr := errors.New("permission denied")
-	mock := &mockStdlib{
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "", expectedErr
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd("file.txt")
 
@@ -105,9 +190,9 @@ func TestDefaultSystem_RequireFilesInWd_GetwdError(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_StatError(t *testing.T) {
+func TestDefaultFilesHandler_RequireFilesInWd_StatError(t *testing.T) {
 	expectedErr := errors.New("permission denied")
-	mock := &mockStdlib{
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/project", nil
 		},
@@ -118,7 +203,7 @@ func TestDefaultSystem_RequireFilesInWd_StatError(t *testing.T) {
 			return nil, nil
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	err := files.RequireFilesInWd("normal.txt", "restricted.txt")
 
@@ -130,9 +215,9 @@ func TestDefaultSystem_RequireFilesInWd_StatError(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
+func TestDefaultFilesHandler_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
 	var checkedPaths []string
-	mock := &mockStdlib{
+	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
 		},
@@ -141,7 +226,7 @@ func TestDefaultSystem_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
 			return nil, nil
 		},
 	}
-	files := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
 	_ = files.RequireFilesInWd("f1.go", "subdir/f2.go", "/../project///subdirWithSlash/f3.go")
 	expectedPaths := []string{
@@ -160,15 +245,29 @@ func TestDefaultSystem_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireDir_NotFound(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireDir_PathNotAbs(t *testing.T) {
+	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
+
+	err := files.RequireDir("./dir/subdir")
+
+	if err == nil {
+		t.Fatal("expected error when path is relative, got nil")
+	}
+	expectedMsg := "path is not absolute: \"./dir/subdir\". Please use an absolute path"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultFilesHandler_RequireDir_NotFound(t *testing.T) {
+	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			return nil, os.ErrNotExist
 		},
 	}
-	system := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
-	err := system.RequireDir("/home/user/dir")
+	err := files.RequireDir("/home/user/dir")
 
 	if err == nil {
 		t.Fatal("expected error when dir missing, got nil")
@@ -179,15 +278,15 @@ func TestDefaultSystem_RequireDir_NotFound(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireDir_GenericError(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireDir_GenericError(t *testing.T) {
+	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			return nil, errors.New("permission denied")
 		},
 	}
-	system := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
-	err := system.RequireDir("/home/user/dir")
+	err := files.RequireDir("/home/user/dir")
 
 	if err == nil {
 		t.Fatal("expected error when dir cannot be checked, got nil")
@@ -198,8 +297,8 @@ func TestDefaultSystem_RequireDir_GenericError(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireDir_NotADir(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
+	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			mockFile := &mockFileInfo{
 				name:  "file.txt",
@@ -208,9 +307,9 @@ func TestDefaultSystem_RequireDir_NotADir(t *testing.T) {
 			return mockFile, nil
 		},
 	}
-	system := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
-	err := system.RequireDir("/home/user/file.txt")
+	err := files.RequireDir("/home/user/file.txt")
 
 	if err == nil {
 		t.Fatal("expected error when dir is a file, got nil")
@@ -221,8 +320,8 @@ func TestDefaultSystem_RequireDir_NotADir(t *testing.T) {
 	}
 }
 
-func TestDefaultSystem_RequireDir_Ok(t *testing.T) {
-	mock := &mockStdlib{
+func TestDefaultFilesHandler_RequireDir_Success(t *testing.T) {
+	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			mockFile := &mockFileInfo{
 				name:  "dir",
@@ -231,11 +330,162 @@ func TestDefaultSystem_RequireDir_Ok(t *testing.T) {
 			return mockFile, nil
 		},
 	}
-	system := &DefaultFilesHandler{stdlib: mock}
+	files := &DefaultFilesHandler{stdlib: std}
 
-	err := system.RequireDir("/home/user/dir")
+	err := files.RequireDir("/home/user/dir")
 
 	if err != nil {
 		t.Errorf("expected no error when directory exists, got %v", err)
+	}
+}
+
+func TestDefaultFilesHandler_EmptyDir_Success(t *testing.T) {
+	var removedPath string
+	var createdPath string
+	var createdPerm os.FileMode
+	std := &mockStdlib{
+		removeAll: func(path string) error {
+			removedPath = path
+			return nil
+		},
+		mkdirAll: func(path string, mode os.FileMode) error {
+			createdPath = path
+			createdPerm = mode
+			return nil
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.EmptyDir("/home/user/targetdir")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if removedPath != "/home/user/targetdir" {
+		t.Errorf("expected removed path %q, got %q", "/home/user/targetdir", removedPath)
+	}
+	if createdPath != "/home/user/targetdir" {
+		t.Errorf("expected created path %q, got %q", "/home/user/targetdir", createdPath)
+	}
+	if createdPerm != defaultDirPerms {
+		t.Errorf("expected permissions %o, got %o", defaultDirPerms, createdPerm)
+	}
+}
+
+func TestDefaultFilesHandler_EmptyDir_PathNotAbs(t *testing.T) {
+	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
+
+	err := files.EmptyDir("relative/path")
+
+	if err == nil {
+		t.Fatal("expected error when path is relative, got nil")
+	}
+	expectedMsg := "path is not absolute: \"relative/path\". Please use an absolute path"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultFilesHandler_EmptyDir_RemoveAllError(t *testing.T) {
+	expectedErr := errors.New("disk full")
+	std := &mockStdlib{
+		removeAll: func(path string) error {
+			return expectedErr
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.EmptyDir("/home/user/somedir")
+
+	if err == nil {
+		t.Fatal("expected error when RemoveAll fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+	expectedMsg := "error removing directory \"/home/user/somedir\": disk full"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	}
+}
+
+func TestDefaultFilesHandler_EmptyDir_MkdirAllError(t *testing.T) {
+	expectedErr := errors.New("permission denied")
+	std := &mockStdlib{
+		removeAll: func(path string) error {
+			return nil
+		},
+		mkdirAll: func(path string, mode os.FileMode) error {
+			return expectedErr
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.EmptyDir("/home/user/restricteddir")
+
+	if err == nil {
+		t.Fatal("expected error when MkdirAll fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestDefaultFilesHandler_CopyDir_Success(t *testing.T) {
+	var commandName string
+	var commandArgs []string
+	mockCmd := &mockRunnableCommand{
+		runFunc: func() error {
+			return nil
+		},
+	}
+	std := &mockStdlib{
+		execCommand: func(name string, arg ...string) RunnableCommand {
+			commandName = name
+			commandArgs = arg
+			return mockCmd
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CopyDir("/home/user/src", "/home/user/dst")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if commandName != "cp" {
+		t.Errorf("expected command name %q, got %q", "cp", commandName)
+	}
+	expectedArgs := []string{"-r", "/home/user/src", "/home/user/dst"}
+	if diff := cmp.Diff(expectedArgs, commandArgs); diff != "" {
+		t.Errorf("args mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestDefaultFilesHandler_CopyDir_CommandError(t *testing.T) {
+	expectedErr := errors.New("source directory not found")
+	mockCmd := &mockRunnableCommand{
+		runFunc: func() error {
+			return expectedErr
+		},
+	}
+	std := &mockStdlib{
+		execCommand: func(name string, arg ...string) RunnableCommand {
+			return mockCmd
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CopyDir("/home/user/src", "/home/user/dst")
+
+	if err == nil {
+		t.Fatal("expected error when cp command fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+	expectedMsg := "failed to copy directory: source directory not found"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}
 }

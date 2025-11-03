@@ -44,6 +44,7 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	if err := d.stdlib.MkdirAll(cleanPath, defaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create directory %q: %w", cleanPath, err)
 	}
+	slog.Debug("Created directory", "path", path)
 	return nil
 }
 
@@ -77,6 +78,7 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 	return nil
 }
 
+// RequireDir requires that a directory exists, or throws an error if it doesn't
 func (d *DefaultFilesHandler) RequireDir(path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
@@ -91,6 +93,7 @@ func (d *DefaultFilesHandler) RequireDir(path string) error {
 	return nil
 }
 
+// EmptyDir empties a directory if it exists. If the directory does not exist, this method will create it
 func (d *DefaultFilesHandler) EmptyDir(path string) error {
 	slog.Debug("Emptying directory", "path", path)
 
@@ -98,6 +101,7 @@ func (d *DefaultFilesHandler) EmptyDir(path string) error {
 		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
 	}
 
+	// TODO clean the path, and TEST (see `TestDefaultFilesHandler_CreateDirIfNotExists_CleansDirtyPath`)
 	if err := d.stdlib.RemoveAll(path); err != nil {
 		return fmt.Errorf("error removing directory %q: %w", path, err)
 	}
@@ -110,7 +114,10 @@ func (d *DefaultFilesHandler) EmptyDir(path string) error {
 	return nil
 }
 
+// CopyDir copies a directory by using the system's cp command. This is not portable: if we want the project to work
+// on Windows, we will have to change this
 func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
+	// TODO think about requiring absolute paths
 	slog.Debug("Copying directory", "srcPath", srcPath, "dstPath", dstPath)
 	cmd := d.stdlib.ExecCommand("cp", "-r", srcPath, dstPath)
 	if err := cmd.Run(); err != nil {
