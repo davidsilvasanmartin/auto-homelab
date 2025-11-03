@@ -166,30 +166,33 @@ func createBackupOperations(mainBackupDir string, commands system.Commands, file
 			calibreLibraryPath,
 			filepath.Join(mainBackupDir, "calibre-web-automated-calibre-library"),
 			"",
-			"",
 			commands,
 			files,
 			env,
+			[]string{},
+			[]string{"calibre"},
 		),
 
 		backup.NewDirectoryBackup(
 			calibreConfPath,
 			filepath.Join(mainBackupDir, "calibre-web-automated-config"),
-			"docker compose stop calibre",
-			"docker compose start calibre",
+			"",
 			commands,
 			files,
 			env,
+			[]string{},
+			[]string{"calibre"},
 		),
 
 		backup.NewDirectoryBackup(
 			paperlessExportPath,
 			filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
-			"docker compose start paperless-redis paperless-db paperless && docker compose exec -T paperless document_exporter -d ../export",
-			"", // no post-command
+			"docker compose exec -T paperless document_exporter -d ../export",
 			commands,
 			files,
 			env,
+			[]string{"paperless-redis", "paperless-db", "paperless"},
+			[]string{},
 		),
 
 		// TODO

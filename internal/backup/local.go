@@ -17,48 +17,118 @@ type Backup interface {
 
 // BaseBackup contains common backup functionality
 type BaseBackup struct {
-	outputPath string
-	commands   system.Commands
-	files      system.FilesHandler
-	env        system.Env
+	outputPath               string
+	commands                 system.Commands
+	files                    system.FilesHandler
+	env                      system.Env
+	requiresServicesEnabled  []string
+	requiresServicesDisabled []string
 }
 
 // NewBaseBackup creates a new base backup instance
-func NewBaseBackup(outputPath string, commands system.Commands, files system.FilesHandler, env system.Env) *BaseBackup {
+func NewBaseBackup(
+	outputPath string,
+	commands system.Commands,
+	files system.FilesHandler,
+	env system.Env,
+	requiresServicesEnabled []string, requiresServicesDisabled []string,
+) *BaseBackup {
 	return &BaseBackup{
-		outputPath: outputPath,
-		commands:   commands,
-		files:      files,
-		env:        env,
+		outputPath:               outputPath,
+		commands:                 commands,
+		files:                    files,
+		env:                      env,
+		requiresServicesEnabled:  requiresServicesEnabled,
+		requiresServicesDisabled: requiresServicesDisabled,
 	}
 }
+
+type ServiceState int
+
+const (
+	ServiceStateEnabled = iota
+	ServiceStateDisabled
+)
+
+type BackupList struct {
+	Backups                   []BaseBackup
+	serviceStatesDuringBackup map[ServiceState]map[string]bool
+}
+
+func NewBackupList() *BackupList {
+	states := make(map[ServiceState]map[string]bool)
+	states[ServiceStateEnabled] = make(map[string]bool)
+	states[ServiceStateDisabled] = make(map[string]bool)
+	return &BackupList{
+		Backups:                   []BaseBackup{},
+		serviceStatesDuringBackup: states,
+	}
+}
+
+func (l *BackupList) Add(backup BaseBackup) {
+	l.Backups = append(l.Backups, backup)
+}
+
+func (l *BackupList) Prepare() error {
+	for _, b := range l.Backups {
+		mustEnableServices := b.requiresServicesEnabled
+		for _, s := range mustEnableServices {
+			disabled := l.serviceStatesDuringBackup[ServiceStateDisabled]
+			if _, ok := disabled[s]; ok == true {
+				return fmt.Errorf("service %q cannot be enabled and disabled at the same time", s)
+			}
+			enabled := l.serviceStatesDuringBackup[ServiceStateEnabled]
+			enabled[s] = true
+		}
+
+		mustDisableServices := b.requiresServicesDisabled
+		for _, s := range mustDisableServices {
+			enabled := l.serviceStatesDuringBackup[ServiceStateEnabled]
+			if _, ok := enabled[s]; ok == true {
+				return fmt.Errorf("service %q cannot be enabled and disabled at the same time", s)
+			}
+			disabled := l.serviceStatesDuringBackup[ServiceStateDisabled]
+			disabled[s] = true
+		}
+	}
+	return nil
+}
+
+func (l *BackupList) Run() {
+	// TODO 1. Enable/disable services as per requirements
+	// TODO 2. Run local backups asynchronously (like it's being done now)
+	// TODO 3. Turn services that have been disabled back up
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+///// SPECIFIC BACKUPS below
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DirectoryBackup handles directory copy operations
 // ⚠️⚠️⚠️ WARNING!! preCommand and postCommand run concurrently. We need to keep this in mind when
 // writing Backup operations. E.g., we can't use preCommand="docker compose stop service"
 // and postCommand="docker compose start service" on several Backup operations, because
 // they will intermix and run in unspecified order
-// TODO to cater with this, we can create structs that group operations that require the pre or post commands affecting the same Docker container
+// TODO delete the above warning when done with new code
 type DirectoryBackup struct {
 	*BaseBackup
-	sourcePath  string
-	preCommand  string
-	postCommand string
+	sourcePath string
+	preCommand string
 }
 
 // NewDirectoryBackup creates a new directory backup instance
 func NewDirectoryBackup(
 	sourcePath, outputPath string,
-	preCommand, postCommand string,
+	preCommand string,
 	commands system.Commands,
 	files system.FilesHandler,
 	env system.Env,
+	requiresServicesEnabled, requiresServicesDisabled []string,
 ) *DirectoryBackup {
 	return &DirectoryBackup{
-		BaseBackup:  NewBaseBackup(outputPath, commands, files, env),
-		sourcePath:  sourcePath,
-		preCommand:  preCommand,
-		postCommand: postCommand,
+		BaseBackup: NewBaseBackup(outputPath, commands, files, env, requiresServicesEnabled, requiresServicesDisabled),
+		sourcePath: sourcePath,
+		preCommand: preCommand,
 	}
 }
 
@@ -84,15 +154,6 @@ func (d *DirectoryBackup) Run() (string, error) {
 
 	if err := d.files.CopyDir(d.sourcePath, d.outputPath); err != nil {
 		return "", err
-	}
-
-	if d.postCommand != "" {
-		slog.Info("Running post-command", "postCommand", d.postCommand)
-		cmd := d.commands.ExecShellCommand(d.postCommand)
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("post-command failed: %w", err)
-		}
-		slog.Info("Successfully ran post-command")
 	}
 
 	return "", nil
