@@ -92,7 +92,7 @@ func (d *DefaultFilesHandler) RequireDir(path string) error {
 }
 
 func (d *DefaultFilesHandler) EmptyDir(path string) error {
-	slog.Info("Emptying directory", "path", path)
+	slog.Debug("Emptying directory", "path", path)
 
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
@@ -106,16 +106,16 @@ func (d *DefaultFilesHandler) EmptyDir(path string) error {
 		return err
 	}
 
-	slog.Info("Directory emptied successfully", "path", path)
+	slog.Debug("Directory emptied successfully", "path", path)
 	return nil
 }
 
 func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
-	slog.Info("Copying directory", "sourcePath", srcPath, "outputPath", dstPath)
+	slog.Debug("Copying directory", "sourcePath", srcPath, "outputPath", dstPath)
 	cmd := d.stdlib.ExecCommand("cp", "-r", srcPath, dstPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy directory: %w", err)
 	}
-	slog.Info("Successfully copied directory", "sourcePath", srcPath, "outputPath", dstPath)
+	slog.Debug("Successfully copied directory", "sourcePath", srcPath, "outputPath", dstPath)
 	return nil
 }

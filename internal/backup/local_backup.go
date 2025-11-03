@@ -3,6 +3,8 @@ package backup
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
+	"strings"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
@@ -73,6 +75,7 @@ func NewDirectoryLocalBackup(
 
 // Run executes the directory backup operation
 func (d *DirectoryLocalBackup) Run() (string, error) {
+	slog.Info("Running directory local backup", "srcPath", d.sourcePath, "dstPath", d.outputPath)
 	if err := d.files.CreateDirIfNotExists(d.outputPath); err != nil {
 		return "", err
 	}
@@ -84,7 +87,7 @@ func (d *DirectoryLocalBackup) Run() (string, error) {
 		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("pre-command failed: %w", err)
 		}
-		slog.Info("Successfully ran pre-command")
+		slog.Info("Successfully ran pre-command", "preCommand", d.preCommand)
 	}
 
 	if err := d.files.RequireDir(d.sourcePath); err != nil {
@@ -95,14 +98,12 @@ func (d *DirectoryLocalBackup) Run() (string, error) {
 		return "", err
 	}
 
+	slog.Info("Directory local backup ran successfully", "srcPath", d.sourcePath, "dstPath", d.outputPath)
 	return "", nil
 }
 
-/* TODO FROM HERE ********************************************************/
-/*********************************
-
-// PostgreSQLBackup handles PostgreSQL database backups using docker exec
-type PostgreSQLBackup struct {
+// PostgreSQLLocalBackup handles PostgreSQL database backups using docker exec
+type PostgreSQLLocalBackup struct {
 	*baseLocalBackup
 	containerName string
 	dbName        string
@@ -110,10 +111,15 @@ type PostgreSQLBackup struct {
 	password      string
 }
 
-// NewPostgreSQLBackup creates a new PostgreSQL backup instance
-func NewPostgreSQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *PostgreSQLBackup {
-	return &PostgreSQLBackup{
-		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
+// NewPostgreSQLLocalBackup creates a new PostgreSQL backup instance
+func NewPostgreSQLLocalBackup(containerName, dbName, username, password, outputPath string) *PostgreSQLLocalBackup {
+	return &PostgreSQLLocalBackup{
+		baseLocalBackup: newBaseLocalBackup(
+			outputPath,
+			system.NewDefaultCommands(),
+			system.NewDefaultFilesHandler(),
+			system.NewDefaultEnv(),
+		),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -122,14 +128,14 @@ func NewPostgreSQLBackup(containerName, dbName, username, password, outputPath s
 }
 
 // Run executes the PostgreSQL backup
-func (p *PostgreSQLBackup) Run() (string, error) {
-	if err := p.prepareOutputDirectory(); err != nil {
+func (p *PostgreSQLLocalBackup) Run() (string, error) {
+	slog.Info("Running PostgreSQL local backup", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.outputPath)
+	if err := p.files.CreateDirIfNotExists(p.outputPath); err != nil {
 		return "", err
 	}
 
 	backupFile := filepath.Join(p.outputPath, p.dbName+".sql")
 
-	// Construct the docker command
 	quotedPassword := shQuote(p.password)
 	dockerCommand := fmt.Sprintf(
 		`docker exec -i %s /bin/bash -c "PGPASSWORD=%s pg_dump --username %s %s" > %s`,
@@ -139,20 +145,24 @@ func (p *PostgreSQLBackup) Run() (string, error) {
 		p.dbName,
 		backupFile,
 	)
-
-	fmt.Fprintf(p.stdout, "Running backup command for database %s in container %s\n", p.dbName, p.containerName)
-
-	cmd := p.commands.ExecCommand("sh", "-c", dockerCommand)
-	cmd.Stdout = p.stdout
-	cmd.Stderr = p.stderr
+	cmd := p.commands.ExecShellCommand(dockerCommand)
 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("error backing up database %s: %w", p.dbName, err)
 	}
 
-	fmt.Fprintf(p.stdout, "Successfully backed up %s to %s\n\n", p.dbName, backupFile)
+	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.outputPath)
 	return backupFile, nil
 }
+
+// shQuote Wrap a string in single quotes for POSIX shells, escaping any embedded single quotes safely.
+// This transforms p'q into 'p'"'"'q' which the shell interprets as a single literal string.
+func shQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+/* TODO FROM HERE ********************************************************/
+/*********************************
 
 // MySQLBackup handles MySQL database backups using docker exec
 type MySQLBackup struct {
@@ -259,10 +269,4 @@ func (m *MariaDBBackup) Run() (string, error) {
 	fmt.Fprintf(m.stdout, "Successfully backed up %s to %s\n\n", m.dbName, backupFile)
 	return backupFile, nil
 }
-
-// shQuote wraps a string in single quotes for POSIX shells, escaping any embedded single quotes safely
-func shQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
-}
-
 ************************/

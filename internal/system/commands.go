@@ -1,5 +1,7 @@
 package system
 
+import "log/slog"
+
 type Commands interface {
 	// ExecCommand executes a system terminal command
 	ExecCommand(name string, arg ...string) RunnableCommand
@@ -23,6 +25,7 @@ func NewDefaultCommands() *DefaultCommands {
 }
 
 func (s *DefaultCommands) ExecCommand(name string, arg ...string) RunnableCommand {
+	slog.Debug("Executing command", "command", name, "arg", arg)
 	return s.stdlib.ExecCommand(name, arg...)
 }
 

@@ -117,27 +117,35 @@ func createBackupOperations(mainBackupDir string, env system.Env) (*backup.Local
 		"docker compose exec -T paperless document_exporter -d ../export",
 	))
 
+	immichDBContainer, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_CONTAINER_NAME")
+	if err != nil {
+		return nil, err
+	}
+
+	immichDBName, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_DATABASE")
+	if err != nil {
+		return nil, err
+	}
+
+	immichDBUser, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_USER")
+	if err != nil {
+		return nil, err
+	}
+
+	immichDBPassword, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_PASSWORD")
+	if err != nil {
+		return nil, err
+	}
+	localBackupList.Add(backup.NewPostgreSQLLocalBackup(
+		immichDBContainer,
+		immichDBName,
+		immichDBUser,
+		immichDBPassword,
+		filepath.Join(mainBackupDir, "immich-db"),
+	))
+
 	return localBackupList, nil
 
-	//immichDBContainer, err := getEnv("HOMELAB_IMMICH_DB_CONTAINER_NAME")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//immichDBName, err := getEnv("HOMELAB_IMMICH_DB_DATABASE")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//immichDBUser, err := getEnv("HOMELAB_IMMICH_DB_USER")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//immichDBPassword, err := getEnv("HOMELAB_IMMICH_DB_PASSWORD")
-	//if err != nil {
-	//	return nil, err
-	//}
 	//
 	//immichUploadPath, err := getEnv("HOMELAB_IMMICH_WEB_UPLOAD_PATH")
 	//if err != nil {
@@ -165,14 +173,6 @@ func createBackupOperations(mainBackupDir string, env system.Env) (*backup.Local
 	//}
 
 	// TODO
-	//backup.NewPostgreSQLBackup(
-	//	immichDBContainer,
-	//	immichDBName,
-	//	immichDBUser,
-	//	immichDBPassword,
-	//	filepath.Join(mainBackupDir, "immich-db"),
-	//	commands,
-	//),
 	//
 	//backup.NewDirectoryLocalBackup(
 	//	immichUploadPath,
