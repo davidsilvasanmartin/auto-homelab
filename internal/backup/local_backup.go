@@ -19,24 +19,24 @@ type LocalBackup interface {
 
 // baseLocalBackup contains common backup functionality
 type baseLocalBackup struct {
-	outputPath string
-	commands   system.Commands
-	files      system.FilesHandler
-	env        system.Env
+	dstPath  string
+	commands system.Commands
+	files    system.FilesHandler
+	env      system.Env
 }
 
 // newBaseLocalBackup creates a new base backup instance
 func newBaseLocalBackup(
-	outputPath string,
+	dstPath string,
 	commands system.Commands,
 	files system.FilesHandler,
 	env system.Env,
 ) *baseLocalBackup {
 	return &baseLocalBackup{
-		outputPath: outputPath,
-		commands:   commands,
-		files:      files,
-		env:        env,
+		dstPath:  dstPath,
+		commands: commands,
+		files:    files,
+		env:      env,
 	}
 }
 
@@ -52,31 +52,31 @@ func newBaseLocalBackup(
 // TODO delete the above warning when done with new code
 type DirectoryLocalBackup struct {
 	*baseLocalBackup
-	sourcePath string
+	srcPath    string
 	preCommand string
 }
 
 // NewDirectoryLocalBackup creates a new directory backup instance
 func NewDirectoryLocalBackup(
-	sourcePath, outputPath string,
+	srcPath, dstPath string,
 	preCommand string,
 ) *DirectoryLocalBackup {
 	return &DirectoryLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
-			outputPath,
+			dstPath,
 			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
 			system.NewDefaultEnv(),
 		),
-		sourcePath: sourcePath,
+		srcPath:    srcPath,
 		preCommand: preCommand,
 	}
 }
 
 // Run executes the directory backup operation
 func (d *DirectoryLocalBackup) Run() (string, error) {
-	slog.Info("Running directory local backup", "srcPath", d.sourcePath, "dstPath", d.outputPath)
-	if err := d.files.CreateDirIfNotExists(d.outputPath); err != nil {
+	slog.Info("Running directory local backup", "srcPath", d.srcPath, "dstPath", d.dstPath)
+	if err := d.files.CreateDirIfNotExists(d.dstPath); err != nil {
 		return "", err
 	}
 
@@ -90,15 +90,15 @@ func (d *DirectoryLocalBackup) Run() (string, error) {
 		slog.Info("Successfully ran pre-command", "preCommand", d.preCommand)
 	}
 
-	if err := d.files.RequireDir(d.sourcePath); err != nil {
+	if err := d.files.RequireDir(d.srcPath); err != nil {
 		return "", err
 	}
 
-	if err := d.files.CopyDir(d.sourcePath, d.outputPath); err != nil {
+	if err := d.files.CopyDir(d.srcPath, d.dstPath); err != nil {
 		return "", err
 	}
 
-	slog.Info("Directory local backup ran successfully", "srcPath", d.sourcePath, "dstPath", d.outputPath)
+	slog.Info("Directory local backup ran successfully", "srcPath", d.srcPath, "dstPath", d.dstPath)
 	return "", nil
 }
 
@@ -112,10 +112,10 @@ type PostgreSQLLocalBackup struct {
 }
 
 // NewPostgreSQLLocalBackup creates a new PostgreSQL backup instance
-func NewPostgreSQLLocalBackup(containerName, dbName, username, password, outputPath string) *PostgreSQLLocalBackup {
+func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath string) *PostgreSQLLocalBackup {
 	return &PostgreSQLLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
-			outputPath,
+			dstPath,
 			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
 			system.NewDefaultEnv(),
@@ -129,12 +129,12 @@ func NewPostgreSQLLocalBackup(containerName, dbName, username, password, outputP
 
 // Run executes the PostgreSQL backup
 func (p *PostgreSQLLocalBackup) Run() (string, error) {
-	slog.Info("Running PostgreSQL local backup", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.outputPath)
-	if err := p.files.CreateDirIfNotExists(p.outputPath); err != nil {
+	slog.Info("Running PostgreSQL local backup", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath)
+	if err := p.files.CreateDirIfNotExists(p.dstPath); err != nil {
 		return "", err
 	}
 
-	backupFile := filepath.Join(p.outputPath, p.dbName+".sql")
+	backupFile := filepath.Join(p.dstPath, p.dbName+".sql")
 
 	quotedPassword := shQuote(p.password)
 	dockerCommand := fmt.Sprintf(
@@ -151,7 +151,7 @@ func (p *PostgreSQLLocalBackup) Run() (string, error) {
 		return "", fmt.Errorf("error backing up database %s: %w", p.dbName, err)
 	}
 
-	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.outputPath)
+	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath)
 	return backupFile, nil
 }
 
@@ -174,9 +174,9 @@ type MySQLBackup struct {
 }
 
 // NewMySQLBackup creates a new MySQL backup instance
-func NewMySQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MySQLBackup {
+func NewMySQLBackup(containerName, dbName, username, password, dstPath string, sys commands.Commands, stdout, stderr io.Writer) *MySQLBackup {
 	return &MySQLBackup{
-		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
+		baseLocalBackup:    newBaseLocalBackup(dstPath, sys, stdout, stderr),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -190,7 +190,7 @@ func (m *MySQLBackup) Run() (string, error) {
 		return "", err
 	}
 
-	backupFile := filepath.Join(m.outputPath, m.dbName+".sql")
+	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
 	// Construct the docker command
 	quotedPassword := shQuote(m.password)
@@ -227,9 +227,9 @@ type MariaDBBackup struct {
 }
 
 // NewMariaDBBackup creates a new MariaDB backup instance
-func NewMariaDBBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MariaDBBackup {
+func NewMariaDBBackup(containerName, dbName, username, password, dstPath string, sys commands.Commands, stdout, stderr io.Writer) *MariaDBBackup {
 	return &MariaDBBackup{
-		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
+		baseLocalBackup:    newBaseLocalBackup(dstPath, sys, stdout, stderr),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -243,7 +243,7 @@ func (m *MariaDBBackup) Run() (string, error) {
 		return "", err
 	}
 
-	backupFile := filepath.Join(m.outputPath, m.dbName+".sql")
+	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
 	// Construct the docker command using mariadb-dump
 	quotedPassword := shQuote(m.password)

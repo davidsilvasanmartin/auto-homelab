@@ -111,11 +111,11 @@ func (d *DefaultFilesHandler) EmptyDir(path string) error {
 }
 
 func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
-	slog.Debug("Copying directory", "sourcePath", srcPath, "outputPath", dstPath)
+	slog.Debug("Copying directory", "srcPath", srcPath, "dstPath", dstPath)
 	cmd := d.stdlib.ExecCommand("cp", "-r", srcPath, dstPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy directory: %w", err)
 	}
-	slog.Debug("Successfully copied directory", "sourcePath", srcPath, "outputPath", dstPath)
+	slog.Debug("Successfully copied directory", "srcPath", srcPath, "dstPath", dstPath)
 	return nil
 }
