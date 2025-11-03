@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"sync"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/backup"
+	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 	"github.com/spf13/cobra"
 )
@@ -25,12 +25,15 @@ var backupCmd = &cobra.Command{
 
 var backupLocalCmd = &cobra.Command{
 	Use:   "local",
-	Short: "Create a local backup of all services' data",
+	Short: "Creates a local backup of all services' data",
+	Long:  "Creates a local backup of all services' data into a single directory. Running this command will start up all services first. The backup operations run concurrently. It is important that backups are performed in periods of low service usage: for example, we would not want to backup a database that's in the process of updating a large number of records",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		commands := system.NewDefaultCommands()
 		files := system.NewDefaultFilesHandler()
 		env := system.NewDefaultEnv()
-		return runBackupLocal(commands, files, env)
+		if err := startAllContainers(); err != nil {
+			return err
+		}
+		return runBackupLocal(files, env)
 	},
 }
 
@@ -43,7 +46,17 @@ var backupCloudCmd = &cobra.Command{
 	},
 }
 
-func runBackupLocal(commands system.Commands, files system.FilesHandler, env system.Env) error {
+// startAllContainers starts all containers. Note that some containers (e.g., databases) need to be running in
+// order to perform the backup, because we need to run commands on them (e.g., exporting the database)
+func startAllContainers() error {
+	dockerRunner := docker.NewSystemRunner()
+	if err := dockerRunner.ComposeStart([]string{}); err != nil {
+		return fmt.Errorf("failed to start all containers: %w", err)
+	}
+	return nil
+}
+
+func runBackupLocal(files system.FilesHandler, env system.Env) error {
 	slog.Info("Creating local backup...")
 
 	// Get the main backup directory path
@@ -58,64 +71,54 @@ func runBackupLocal(commands system.Commands, files system.FilesHandler, env sys
 	}
 
 	// Define backup operations
-	backupOperations, err := createBackupOperations(mainBackupDir, commands, files, env)
+	localBackupList, err := createBackupOperations(mainBackupDir, env)
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
 
-	// Run all backup operations concurrently
-	// TODO review and understand this code (thanks Claude :))
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(backupOperations))
-	for _, operation := range backupOperations {
-		wg.Add(1)
-		go func(op backup.Backup) {
-			defer wg.Done()
-			if _, err := op.Run(); err != nil {
-				errChan <- fmt.Errorf("backup operation failed: %w", err)
-			}
-		}(operation)
-	}
-	// Wait for all goroutines to complete
-	wg.Wait()
-	close(errChan)
-	// Check if any errors occurred
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
+	if err := localBackupList.RunAll(); err != nil {
+		return fmt.Errorf("failed running backup operations: %w", err)
 	}
 
 	slog.Info("Local backup completed successfully")
 	return nil
 }
 
-func createBackupOperations(mainBackupDir string, commands system.Commands, files system.FilesHandler, env system.Env) ([]backup.Backup, error) {
-	// Helper function to get required env variables with better error context
-	getEnv := func(key string) (string, error) {
-		val, err := env.GetRequiredEnv(key)
-		if err != nil {
-			return "", fmt.Errorf("failed to get %s: %w", key, err)
-		}
-		return val, nil
-	}
+func createBackupOperations(mainBackupDir string, env system.Env) (*backup.LocalBackupList, error) {
+	localBackupList := backup.NewLocalBackupList()
 
-	// Get all required environment variables
-	calibreLibraryPath, err := getEnv("HOMELAB_CALIBRE_LIBRARY_PATH")
+	calibreLibraryPath, err := env.GetRequiredEnv("HOMELAB_CALIBRE_LIBRARY_PATH")
 	if err != nil {
 		return nil, err
 	}
+	localBackupList.Add(backup.NewDirectoryLocalBackup(
+		calibreLibraryPath,
+		filepath.Join(mainBackupDir, "calibre-web-automated-calibre-library"),
+		"",
+	))
 
-	calibreConfPath, err := getEnv("HOMELAB_CALIBRE_CONF_PATH")
+	calibreConfPath, err := env.GetRequiredEnv("HOMELAB_CALIBRE_CONF_PATH")
 	if err != nil {
 		return nil, err
 	}
+	localBackupList.Add(backup.NewDirectoryLocalBackup(
+		calibreConfPath,
+		filepath.Join(mainBackupDir, "calibre-web-automated-config"),
+		"",
+	))
 
-	paperlessExportPath, err := getEnv("HOMELAB_PAPERLESS_WEB_EXPORT_PATH")
+	paperlessExportPath, err := env.GetRequiredEnv("HOMELAB_PAPERLESS_WEB_EXPORT_PATH")
 	if err != nil {
 		return nil, err
 	}
-	//
+	localBackupList.Add(backup.NewDirectoryLocalBackup(
+		paperlessExportPath,
+		filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
+		"docker compose exec -T paperless document_exporter -d ../export",
+	))
+
+	return localBackupList, nil
+
 	//immichDBContainer, err := getEnv("HOMELAB_IMMICH_DB_CONTAINER_NAME")
 	//if err != nil {
 	//	return nil, err
@@ -161,67 +164,31 @@ func createBackupOperations(mainBackupDir string, commands system.Commands, file
 	//	return nil, err
 	//}
 
-	operations := []backup.Backup{
-		backup.NewDirectoryBackup(
-			calibreLibraryPath,
-			filepath.Join(mainBackupDir, "calibre-web-automated-calibre-library"),
-			"",
-			commands,
-			files,
-			env,
-			[]string{},
-			[]string{"calibre"},
-		),
+	// TODO
+	//backup.NewPostgreSQLBackup(
+	//	immichDBContainer,
+	//	immichDBName,
+	//	immichDBUser,
+	//	immichDBPassword,
+	//	filepath.Join(mainBackupDir, "immich-db"),
+	//	commands,
+	//),
+	//
+	//backup.NewDirectoryLocalBackup(
+	//	immichUploadPath,
+	//	filepath.Join(mainBackupDir, "immich-library"),
+	//	"", // no pre-command
+	//	"", // no post-command
+	//	commands,
+	//),
+	//
+	//backup.NewMariaDBBackup(
+	//	fireflyDBContainer,
+	//	fireflyDBName,
+	//	fireflyDBUser,
+	//	fireflyDBPassword,
+	//	filepath.Join(mainBackupDir, "firefly-db"),
+	//	commands,
+	//),
 
-		backup.NewDirectoryBackup(
-			calibreConfPath,
-			filepath.Join(mainBackupDir, "calibre-web-automated-config"),
-			"",
-			commands,
-			files,
-			env,
-			[]string{},
-			[]string{"calibre"},
-		),
-
-		backup.NewDirectoryBackup(
-			paperlessExportPath,
-			filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
-			"docker compose exec -T paperless document_exporter -d ../export",
-			commands,
-			files,
-			env,
-			[]string{"paperless-redis", "paperless-db", "paperless"},
-			[]string{},
-		),
-
-		// TODO
-		//backup.NewPostgreSQLBackup(
-		//	immichDBContainer,
-		//	immichDBName,
-		//	immichDBUser,
-		//	immichDBPassword,
-		//	filepath.Join(mainBackupDir, "immich-db"),
-		//	commands,
-		//),
-		//
-		//backup.NewDirectoryBackup(
-		//	immichUploadPath,
-		//	filepath.Join(mainBackupDir, "immich-library"),
-		//	"", // no pre-command
-		//	"", // no post-command
-		//	commands,
-		//),
-		//
-		//backup.NewMariaDBBackup(
-		//	fireflyDBContainer,
-		//	fireflyDBName,
-		//	fireflyDBUser,
-		//	fireflyDBPassword,
-		//	filepath.Join(mainBackupDir, "firefly-db"),
-		//	commands,
-		//),
-	}
-
-	return operations, nil
 }

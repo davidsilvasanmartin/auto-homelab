@@ -9,131 +9,70 @@ import (
 
 // TODO think about prefixing things with "Local"
 
-// Backup is the interface for all backup operations
-type Backup interface {
+// LocalBackup is the interface for all backup operations
+type LocalBackup interface {
 	// Run executes the backup operation and returns the path to the backup
 	Run() (string, error)
 }
 
-// BaseBackup contains common backup functionality
-type BaseBackup struct {
-	outputPath               string
-	commands                 system.Commands
-	files                    system.FilesHandler
-	env                      system.Env
-	requiresServicesEnabled  []string
-	requiresServicesDisabled []string
+// baseLocalBackup contains common backup functionality
+type baseLocalBackup struct {
+	outputPath string
+	commands   system.Commands
+	files      system.FilesHandler
+	env        system.Env
 }
 
-// NewBaseBackup creates a new base backup instance
-func NewBaseBackup(
+// newBaseLocalBackup creates a new base backup instance
+func newBaseLocalBackup(
 	outputPath string,
 	commands system.Commands,
 	files system.FilesHandler,
 	env system.Env,
-	requiresServicesEnabled []string, requiresServicesDisabled []string,
-) *BaseBackup {
-	return &BaseBackup{
-		outputPath:               outputPath,
-		commands:                 commands,
-		files:                    files,
-		env:                      env,
-		requiresServicesEnabled:  requiresServicesEnabled,
-		requiresServicesDisabled: requiresServicesDisabled,
+) *baseLocalBackup {
+	return &baseLocalBackup{
+		outputPath: outputPath,
+		commands:   commands,
+		files:      files,
+		env:        env,
 	}
-}
-
-type ServiceState int
-
-const (
-	ServiceStateEnabled = iota
-	ServiceStateDisabled
-)
-
-type BackupList struct {
-	Backups                   []BaseBackup
-	serviceStatesDuringBackup map[ServiceState]map[string]bool
-}
-
-func NewBackupList() *BackupList {
-	states := make(map[ServiceState]map[string]bool)
-	states[ServiceStateEnabled] = make(map[string]bool)
-	states[ServiceStateDisabled] = make(map[string]bool)
-	return &BackupList{
-		Backups:                   []BaseBackup{},
-		serviceStatesDuringBackup: states,
-	}
-}
-
-func (l *BackupList) Add(backup BaseBackup) {
-	l.Backups = append(l.Backups, backup)
-}
-
-func (l *BackupList) Prepare() error {
-	for _, b := range l.Backups {
-		mustEnableServices := b.requiresServicesEnabled
-		for _, s := range mustEnableServices {
-			disabled := l.serviceStatesDuringBackup[ServiceStateDisabled]
-			if _, ok := disabled[s]; ok == true {
-				return fmt.Errorf("service %q cannot be enabled and disabled at the same time", s)
-			}
-			enabled := l.serviceStatesDuringBackup[ServiceStateEnabled]
-			enabled[s] = true
-		}
-
-		mustDisableServices := b.requiresServicesDisabled
-		for _, s := range mustDisableServices {
-			enabled := l.serviceStatesDuringBackup[ServiceStateEnabled]
-			if _, ok := enabled[s]; ok == true {
-				return fmt.Errorf("service %q cannot be enabled and disabled at the same time", s)
-			}
-			disabled := l.serviceStatesDuringBackup[ServiceStateDisabled]
-			disabled[s] = true
-		}
-	}
-	return nil
-}
-
-func (l *BackupList) Run() {
-	// TODO 1. Enable/disable services as per requirements
-	// TODO 2. Run local backups asynchronously (like it's being done now)
-	// TODO 3. Turn services that have been disabled back up
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 ///// SPECIFIC BACKUPS below
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// DirectoryBackup handles directory copy operations
+// DirectoryLocalBackup handles directory copy operations
 // ⚠️⚠️⚠️ WARNING!! preCommand and postCommand run concurrently. We need to keep this in mind when
-// writing Backup operations. E.g., we can't use preCommand="docker compose stop service"
-// and postCommand="docker compose start service" on several Backup operations, because
+// writing LocalBackup operations. E.g., we can't use preCommand="docker compose stop service"
+// and postCommand="docker compose start service" on several LocalBackup operations, because
 // they will intermix and run in unspecified order
 // TODO delete the above warning when done with new code
-type DirectoryBackup struct {
-	*BaseBackup
+type DirectoryLocalBackup struct {
+	*baseLocalBackup
 	sourcePath string
 	preCommand string
 }
 
-// NewDirectoryBackup creates a new directory backup instance
-func NewDirectoryBackup(
+// NewDirectoryLocalBackup creates a new directory backup instance
+func NewDirectoryLocalBackup(
 	sourcePath, outputPath string,
 	preCommand string,
-	commands system.Commands,
-	files system.FilesHandler,
-	env system.Env,
-	requiresServicesEnabled, requiresServicesDisabled []string,
-) *DirectoryBackup {
-	return &DirectoryBackup{
-		BaseBackup: NewBaseBackup(outputPath, commands, files, env, requiresServicesEnabled, requiresServicesDisabled),
+) *DirectoryLocalBackup {
+	return &DirectoryLocalBackup{
+		baseLocalBackup: newBaseLocalBackup(
+			outputPath,
+			system.NewDefaultCommands(),
+			system.NewDefaultFilesHandler(),
+			system.NewDefaultEnv(),
+		),
 		sourcePath: sourcePath,
 		preCommand: preCommand,
 	}
 }
 
 // Run executes the directory backup operation
-func (d *DirectoryBackup) Run() (string, error) {
+func (d *DirectoryLocalBackup) Run() (string, error) {
 	if err := d.files.CreateDirIfNotExists(d.outputPath); err != nil {
 		return "", err
 	}
@@ -164,7 +103,7 @@ func (d *DirectoryBackup) Run() (string, error) {
 
 // PostgreSQLBackup handles PostgreSQL database backups using docker exec
 type PostgreSQLBackup struct {
-	*BaseBackup
+	*baseLocalBackup
 	containerName string
 	dbName        string
 	username      string
@@ -174,7 +113,7 @@ type PostgreSQLBackup struct {
 // NewPostgreSQLBackup creates a new PostgreSQL backup instance
 func NewPostgreSQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *PostgreSQLBackup {
 	return &PostgreSQLBackup{
-		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
+		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -217,7 +156,7 @@ func (p *PostgreSQLBackup) Run() (string, error) {
 
 // MySQLBackup handles MySQL database backups using docker exec
 type MySQLBackup struct {
-	*BaseBackup
+	*baseLocalBackup
 	containerName string
 	dbName        string
 	username      string
@@ -227,7 +166,7 @@ type MySQLBackup struct {
 // NewMySQLBackup creates a new MySQL backup instance
 func NewMySQLBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MySQLBackup {
 	return &MySQLBackup{
-		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
+		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -270,7 +209,7 @@ func (m *MySQLBackup) Run() (string, error) {
 
 // MariaDBBackup handles MariaDB database backups using docker exec
 type MariaDBBackup struct {
-	*BaseBackup
+	*baseLocalBackup
 	containerName string
 	dbName        string
 	username      string
@@ -280,7 +219,7 @@ type MariaDBBackup struct {
 // NewMariaDBBackup creates a new MariaDB backup instance
 func NewMariaDBBackup(containerName, dbName, username, password, outputPath string, sys commands.Commands, stdout, stderr io.Writer) *MariaDBBackup {
 	return &MariaDBBackup{
-		BaseBackup:    NewBaseBackup(outputPath, sys, stdout, stderr),
+		baseLocalBackup:    newBaseLocalBackup(outputPath, sys, stdout, stderr),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
