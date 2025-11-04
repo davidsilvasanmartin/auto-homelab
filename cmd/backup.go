@@ -71,7 +71,7 @@ func runBackupLocal(files system.FilesHandler, env system.Env) error {
 	}
 
 	// Define backup operations
-	localBackupList, err := createBackupOperations(mainBackupDir, env)
+	localBackupList, err := buildLocalBackupList(mainBackupDir, env)
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
@@ -84,7 +84,7 @@ func runBackupLocal(files system.FilesHandler, env system.Env) error {
 	return nil
 }
 
-func createBackupOperations(mainBackupDir string, env system.Env) (*backup.LocalBackupList, error) {
+func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBackupList, error) {
 	localBackupList := backup.NewLocalBackupList()
 
 	calibreLibraryPath, err := env.GetRequiredEnv("HOMELAB_CALIBRE_LIBRARY_PATH")
@@ -121,17 +121,14 @@ func createBackupOperations(mainBackupDir string, env system.Env) (*backup.Local
 	if err != nil {
 		return nil, err
 	}
-
 	immichDBName, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_DATABASE")
 	if err != nil {
 		return nil, err
 	}
-
 	immichDBUser, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_USER")
 	if err != nil {
 		return nil, err
 	}
-
 	immichDBPassword, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_PASSWORD")
 	if err != nil {
 		return nil, err
@@ -144,51 +141,39 @@ func createBackupOperations(mainBackupDir string, env system.Env) (*backup.Local
 		filepath.Join(mainBackupDir, "immich-db"),
 	))
 
+	immichUploadPath, err := env.GetRequiredEnv("HOMELAB_IMMICH_WEB_UPLOAD_PATH")
+	if err != nil {
+		return nil, err
+	}
+	localBackupList.Add(backup.NewDirectoryLocalBackup(
+		immichUploadPath,
+		filepath.Join(mainBackupDir, "immich-library"),
+		"",
+	))
+
+	fireflyDBContainer, err := env.GetRequiredEnv("HOMELAB_FIREFLY_DB_CONTAINER_NAME")
+	if err != nil {
+		return nil, err
+	}
+	fireflyDBName, err := env.GetRequiredEnv("HOMELAB_FIREFLY_DB_DATABASE")
+	if err != nil {
+		return nil, err
+	}
+	fireflyDBUser, err := env.GetRequiredEnv("HOMELAB_FIREFLY_DB_USER")
+	if err != nil {
+		return nil, err
+	}
+	fireflyDBPassword, err := env.GetRequiredEnv("HOMELAB_FIREFLY_DB_PASSWORD")
+	if err != nil {
+		return nil, err
+	}
+	localBackupList.Add(backup.NewMariaDBBackup(
+		fireflyDBContainer,
+		fireflyDBName,
+		fireflyDBUser,
+		fireflyDBPassword,
+		filepath.Join(mainBackupDir, "firefly-db"),
+	))
+
 	return localBackupList, nil
-
-	//
-	//immichUploadPath, err := getEnv("HOMELAB_IMMICH_WEB_UPLOAD_PATH")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fireflyDBContainer, err := getEnv("HOMELAB_FIREFLY_DB_CONTAINER_NAME")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fireflyDBName, err := getEnv("HOMELAB_FIREFLY_DB_DATABASE")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fireflyDBUser, err := getEnv("HOMELAB_FIREFLY_DB_USER")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//fireflyDBPassword, err := getEnv("HOMELAB_FIREFLY_DB_PASSWORD")
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	// TODO
-	//
-	//backup.NewDirectoryLocalBackup(
-	//	immichUploadPath,
-	//	filepath.Join(mainBackupDir, "immich-library"),
-	//	"", // no pre-command
-	//	"", // no post-command
-	//	commands,
-	//),
-	//
-	//backup.NewMariaDBBackup(
-	//	fireflyDBContainer,
-	//	fireflyDBName,
-	//	fireflyDBUser,
-	//	fireflyDBPassword,
-	//	filepath.Join(mainBackupDir, "firefly-db"),
-	//	commands,
-	//),
-
 }

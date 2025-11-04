@@ -22,7 +22,6 @@ func (l *LocalBackupList) Add(backup LocalBackup) {
 
 // RunAll runs all backup operations concurrently
 func (l *LocalBackupList) RunAll() error {
-	// TODO review and understand this code (thanks Claude :))
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(l.backups))
 	for _, operation := range l.backups {
@@ -38,10 +37,14 @@ func (l *LocalBackupList) RunAll() error {
 	wg.Wait()
 	close(errChan)
 
+	// Collect all errors
+	var errs []error
 	for err := range errChan {
-		if err != nil {
-			return err
-		}
+		errs = append(errs, err)
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("%d backup operations failed: %v", len(errs), errs)
 	}
 
 	return nil

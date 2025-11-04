@@ -29,6 +29,7 @@ EXCLUDE_DIRS = {
     "node_modules",
     "dist",
     "build",
+    "test-data",
 }
 
 
@@ -43,6 +44,7 @@ def is_justfile(p: Path) -> bool:
 
 
 MATCHERS: dict[str, callable[[Path], bool]] = {
+    "go(.go)": lambda p: p.suffix == ".go",
     "python(.py)": lambda p: p.suffix == ".py",
     "yaml(.yaml)": lambda p: p.suffix == ".yaml",
     "yaml(.yml)": lambda p: p.suffix == ".yml",

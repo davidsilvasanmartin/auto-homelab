@@ -148,7 +148,7 @@ func (p *PostgreSQLLocalBackup) Run() (string, error) {
 	cmd := p.commands.ExecShellCommand(dockerCommand)
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error backing up database %s: %w", p.dbName, err)
+		return "", fmt.Errorf("error backing up PostgreSQL database %s: %w", p.dbName, err)
 	}
 
 	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath)
@@ -161,9 +161,6 @@ func shQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
-/* TODO FROM HERE ********************************************************/
-/*********************************
-
 // MySQLBackup handles MySQL database backups using docker exec
 type MySQLBackup struct {
 	*baseLocalBackup
@@ -174,9 +171,14 @@ type MySQLBackup struct {
 }
 
 // NewMySQLBackup creates a new MySQL backup instance
-func NewMySQLBackup(containerName, dbName, username, password, dstPath string, sys commands.Commands, stdout, stderr io.Writer) *MySQLBackup {
+func NewMySQLBackup(containerName, dbName, username, password, dstPath string) *MySQLBackup {
 	return &MySQLBackup{
-		baseLocalBackup:    newBaseLocalBackup(dstPath, sys, stdout, stderr),
+		baseLocalBackup: newBaseLocalBackup(
+			dstPath,
+			system.NewDefaultCommands(),
+			system.NewDefaultFilesHandler(),
+			system.NewDefaultEnv(),
+		),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -186,13 +188,13 @@ func NewMySQLBackup(containerName, dbName, username, password, dstPath string, s
 
 // Run executes the MySQL backup
 func (m *MySQLBackup) Run() (string, error) {
-	if err := m.prepareOutputDirectory(); err != nil {
+	slog.Info("Running MySQL local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
+	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
 		return "", err
 	}
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
-	// Construct the docker command
 	quotedPassword := shQuote(m.password)
 	dockerCommand := fmt.Sprintf(
 		`docker exec -i %s /bin/bash -c "MYSQL_PWD=%s mysqldump --user %s %s" > %s`,
@@ -202,18 +204,13 @@ func (m *MySQLBackup) Run() (string, error) {
 		m.dbName,
 		backupFile,
 	)
-
-	fmt.Fprintf(m.stdout, "Running backup command for database %s in container %s\n", m.dbName, m.containerName)
-
-	cmd := m.commands.ExecCommand("sh", "-c", dockerCommand)
-	cmd.Stdout = m.stdout
-	cmd.Stderr = m.stderr
+	cmd := m.commands.ExecShellCommand(dockerCommand)
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error backing up database %s: %w", m.dbName, err)
+		return "", fmt.Errorf("error backing up MySQL database %s: %w", m.dbName, err)
 	}
 
-	fmt.Fprintf(m.stdout, "Successfully backed up %s to %s\n\n", m.dbName, backupFile)
+	slog.Info("MySQL local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	return backupFile, nil
 }
 
@@ -227,9 +224,14 @@ type MariaDBBackup struct {
 }
 
 // NewMariaDBBackup creates a new MariaDB backup instance
-func NewMariaDBBackup(containerName, dbName, username, password, dstPath string, sys commands.Commands, stdout, stderr io.Writer) *MariaDBBackup {
+func NewMariaDBBackup(containerName, dbName, username, password, dstPath string) *MariaDBBackup {
 	return &MariaDBBackup{
-		baseLocalBackup:    newBaseLocalBackup(dstPath, sys, stdout, stderr),
+		baseLocalBackup: newBaseLocalBackup(
+			dstPath,
+			system.NewDefaultCommands(),
+			system.NewDefaultFilesHandler(),
+			system.NewDefaultEnv(),
+		),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -239,13 +241,13 @@ func NewMariaDBBackup(containerName, dbName, username, password, dstPath string,
 
 // Run executes the MariaDB backup
 func (m *MariaDBBackup) Run() (string, error) {
-	if err := m.prepareOutputDirectory(); err != nil {
+	slog.Info("Running MariaDB local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
+	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
 		return "", err
 	}
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
-	// Construct the docker command using mariadb-dump
 	quotedPassword := shQuote(m.password)
 	dockerCommand := fmt.Sprintf(
 		`docker exec -i %s /bin/bash -c "MYSQL_PWD=%s mariadb-dump --user %s %s" > %s`,
@@ -255,18 +257,12 @@ func (m *MariaDBBackup) Run() (string, error) {
 		m.dbName,
 		backupFile,
 	)
-
-	fmt.Fprintf(m.stdout, "Running backup command for MariaDB database %s in container %s\n", m.dbName, m.containerName)
-
-	cmd := m.commands.ExecCommand("sh", "-c", dockerCommand)
-	cmd.Stdout = m.stdout
-	cmd.Stderr = m.stderr
+	cmd := m.commands.ExecShellCommand(dockerCommand)
 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("error backing up MariaDB database %s: %w", m.dbName, err)
 	}
 
-	fmt.Fprintf(m.stdout, "Successfully backed up %s to %s\n\n", m.dbName, backupFile)
+	slog.Info("MariaDB local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	return backupFile, nil
 }
-************************/
