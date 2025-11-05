@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,56 +44,55 @@ func TestLocalBackupList_RunAll_ThreeSuccessful(t *testing.T) {
 	}
 }
 
+func TestLocalBackupList_RunAll_SecondAndThirdFail(t *testing.T) {
+	var executionCount atomic.Int32
+	firstError := errors.New("backup 2 failed")
+	secondError := errors.New("backup 3 failed")
+	list := NewLocalBackupList()
+	// First backup succeeds
+	list.Add(&mockLocalBackup{
+		runFunc: func() (string, error) {
+			executionCount.Add(1)
+			return "/backup/1", nil
+		},
+	})
+	// Second backup fails
+	list.Add(&mockLocalBackup{
+		runFunc: func() (string, error) {
+			executionCount.Add(1)
+			return "", firstError
+		},
+	})
+	// Third backup fails
+	list.Add(&mockLocalBackup{
+		runFunc: func() (string, error) {
+			executionCount.Add(1)
+			return "", secondError
+		},
+	})
+
+	err := list.RunAll()
+
+	if executionCount.Load() != 3 {
+		t.Errorf("expected 3 backups to execute, got %d", executionCount.Load())
+	}
+	if err == nil {
+		t.Fatal("expected error when backups fail, got nil")
+	}
+	expectedMsgParts := []string{
+		"2 backup operations failed:",
+		"backup operation failed: backup 2",
+		"backup operation failed: backup 3",
+	}
+	actualMsg := err.Error()
+	for _, expectedMsg := range expectedMsgParts {
+		if !strings.Contains(actualMsg, expectedMsg) {
+			t.Errorf("expected error message to contain %q, got %q", expectedMsg, actualMsg)
+		}
+	}
+}
+
 // TODO BELOW
-//func TestLocalBackupList_RunAll_SecondAndThirdFail(t *testing.T) {
-//	var executionCount atomic.Int32
-//	firstError := errors.New("backup 2 failed")
-//	secondError := errors.New("backup 3 failed")
-//
-//	list := NewLocalBackupList()
-//
-//	// First backup succeeds
-//	list.Add(&mockLocalBackup{
-//		runFunc: func() (string, error) {
-//			executionCount.Add(1)
-//			return "/backup/1", nil
-//		},
-//	})
-//
-//	// Second backup fails
-//	list.Add(&mockLocalBackup{
-//		runFunc: func() (string, error) {
-//			executionCount.Add(1)
-//			return "", firstError
-//		},
-//	})
-//
-//	// Third backup fails
-//	list.Add(&mockLocalBackup{
-//		runFunc: func() (string, error) {
-//			executionCount.Add(1)
-//			return "", secondError
-//		},
-//	})
-//
-//	err := list.RunAll()
-//
-//	if err == nil {
-//		t.Fatal("expected error when backups fail, got nil")
-//	}
-//
-//	// With current implementation, we only get ONE error (whichever is read first from channel)
-//	// The error should be wrapped with "backup operation failed"
-//	if !errors.Is(err, firstError) && !errors.Is(err, secondError) {
-//		t.Errorf("expected error to be one of the backup errors, got: %v", err)
-//	}
-//
-//	// Verify all three backups were attempted (they run concurrently)
-//	if executionCount.Load() != 3 {
-//		t.Errorf("expected 3 backups to execute, got %d", executionCount.Load())
-//	}
-//}
-//
 //// TestLocalBackupList_RunAll_AllFail tests when all backups fail
 //func TestLocalBackupList_RunAll_AllFail(t *testing.T) {
 //	list := NewLocalBackupList()
