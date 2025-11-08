@@ -154,8 +154,8 @@ func shQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
-// MySQLBackup handles MySQL database backups using docker exec
-type MySQLBackup struct {
+// MySQLLocalBackup handles MySQL database backups using docker exec
+type MySQLLocalBackup struct {
 	*baseLocalBackup
 	dockerRunner  docker.Runner
 	containerName string
@@ -164,9 +164,9 @@ type MySQLBackup struct {
 	password      string
 }
 
-// NewMySQLBackup creates a new MySQL backup instance
-func NewMySQLBackup(containerName, dbName, username, password, dstPath string) *MySQLBackup {
-	return &MySQLBackup{
+// NewMySQLLocalBackup creates a new MySQL backup instance
+func NewMySQLLocalBackup(containerName, dbName, username, password, dstPath string) *MySQLLocalBackup {
+	return &MySQLLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
 			system.NewDefaultFilesHandler(),
@@ -180,7 +180,7 @@ func NewMySQLBackup(containerName, dbName, username, password, dstPath string) *
 }
 
 // Run executes the MySQL backup
-func (m *MySQLBackup) Run() error {
+func (m *MySQLLocalBackup) Run() error {
 	slog.Info("Running MySQL local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
 		return err

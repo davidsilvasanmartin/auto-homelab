@@ -555,13 +555,192 @@ func TestPostgreSQLLocalBackup_Run_PasswordQuoting(t *testing.T) {
 	}
 }
 
-func TestPostgreSQLLocalBackup_Run_BackupFilePathCorrect(t *testing.T) {
+func TestMySQLLocalBackup_Run_Success(t *testing.T) {
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner:  &mockDockerRunner{},
+		containerName: "mysql-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestMySQLLocalBackup_Run_CreateDirError(t *testing.T) {
+	expectedErr := errors.New("permission denied")
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files: &mockFilesHandler{
+				createDirIfNotExists: func(path string) error {
+					return expectedErr
+				},
+			},
+		},
+		dockerRunner:  &mockDockerRunner{},
+		containerName: "mysql-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMySQLLocalBackup_Run_WaitUntilContainerExecIsSuccessfulError(t *testing.T) {
+	expectedErr := errors.New("database not ready")
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			waitUntilContainerExecIsSuccessful: func(containerName string, cmd string) error {
+				return expectedErr
+			},
+		},
+		containerName: "mysql-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMySQLLocalBackup_Run_ContainerExecError(t *testing.T) {
+	expectedErr := errors.New("pg_dump failed")
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			containerExec: func(containerName string, cmd string) error {
+				return expectedErr
+			},
+		},
+		containerName: "mysql-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMySQLLocalBackup_Run_CorrectReadinessCheck(t *testing.T) {
+	var capturedContainerName string
 	var capturedCmd string
-	dstPath := "/var/backups"
-	dbName := "production_db"
-	backup := &PostgreSQLLocalBackup{
+	containerName := "mysql-container"
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			waitUntilContainerExecIsSuccessful: func(containerName string, cmd string) error {
+				capturedContainerName = containerName
+				capturedCmd = cmd
+				return nil
+			},
+		},
+		containerName: containerName,
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedContainerName != containerName {
+		t.Errorf("expected container name %q, got %q", containerName, capturedContainerName)
+	}
+	expectedCmd := "mysqladmin ping -h localhost --silent"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected readiness check command %q, got %q", expectedCmd, capturedCmd)
+	}
+}
+
+func TestMySQLLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
+	var capturedContainerName string
+	var capturedCmd string
+	containerName := "mysql-container"
+	dbName := "mydb"
+	username := "myuser"
+	password := "mypass"
+	dstPath := "/dst"
+	backup := &MySQLLocalBackup{
 		baseLocalBackup: &baseLocalBackup{
 			dstPath: dstPath,
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			containerExec: func(containerName string, cmd string) error {
+				capturedContainerName = containerName
+				capturedCmd = cmd
+				return nil
+			},
+		},
+		containerName: containerName,
+		dbName:        dbName,
+		username:      username,
+		password:      password,
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedContainerName != containerName {
+		t.Errorf("expected container name %q, got %q", containerName, capturedContainerName)
+	}
+	expectedCmd := `/bin/bash -c "MYSQL_PWD='mypass' mysqldump --user myuser mydb" > /dst/mydb.sql`
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command:\n%q\ngot:\n%q", expectedCmd, capturedCmd)
+	}
+}
+
+func TestMySQLLocalBackup_Run_PasswordQuoting(t *testing.T) {
+	var capturedCmd string
+	password := "pass'with'quotes"
+	backup := &MySQLLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
 			files:   &mockFilesHandler{},
 		},
 		dockerRunner: &mockDockerRunner{
@@ -570,10 +749,10 @@ func TestPostgreSQLLocalBackup_Run_BackupFilePathCorrect(t *testing.T) {
 				return nil
 			},
 		},
-		containerName: "postgres-container",
-		dbName:        dbName,
-		username:      "user",
-		password:      "pass",
+		containerName: "mysql-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      password,
 	}
 
 	err := backup.Run()
@@ -581,8 +760,9 @@ func TestPostgreSQLLocalBackup_Run_BackupFilePathCorrect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	expectedBackupFile := "/var/backups/production_db.sql"
-	if !strings.Contains(capturedCmd, expectedBackupFile) {
-		t.Errorf("expected command to contain backup file %q, got command:\n%q", expectedBackupFile, capturedCmd)
+	// The password should be properly quoted with shQuote
+	expectedQuotedPass := `'pass'"'"'with'"'"'quotes'`
+	if !strings.Contains(capturedCmd, expectedQuotedPass) {
+		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
 	}
 }
