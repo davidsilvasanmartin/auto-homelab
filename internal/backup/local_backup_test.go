@@ -766,3 +766,215 @@ func TestMySQLLocalBackup_Run_PasswordQuoting(t *testing.T) {
 		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
 	}
 }
+
+func TestMariaDBLocalBackup_Run_Success(t *testing.T) {
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner:  &mockDockerRunner{},
+		containerName: "mariadb-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_CreateDirError(t *testing.T) {
+	expectedErr := errors.New("permission denied")
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files: &mockFilesHandler{
+				createDirIfNotExists: func(path string) error {
+					return expectedErr
+				},
+			},
+		},
+		dockerRunner:  &mockDockerRunner{},
+		containerName: "mariadb-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_WaitUntilContainerExecIsSuccessfulError(t *testing.T) {
+	expectedErr := errors.New("database not ready")
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			waitUntilContainerExecIsSuccessful: func(containerName string, cmd string) error {
+				return expectedErr
+			},
+		},
+		containerName: "mariadb-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_ContainerExecError(t *testing.T) {
+	expectedErr := errors.New("pg_dump failed")
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			containerExec: func(containerName string, cmd string) error {
+				return expectedErr
+			},
+		},
+		containerName: "mariadb-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_CorrectReadinessCheck(t *testing.T) {
+	var capturedContainerName string
+	var capturedCmd string
+	containerName := "mariadb-container"
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			waitUntilContainerExecIsSuccessful: func(containerName string, cmd string) error {
+				capturedContainerName = containerName
+				capturedCmd = cmd
+				return nil
+			},
+		},
+		containerName: containerName,
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      "testpass",
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedContainerName != containerName {
+		t.Errorf("expected container name %q, got %q", containerName, capturedContainerName)
+	}
+	expectedCmd := "mariadb-admin ping -h localhost --silent"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected readiness check command %q, got %q", expectedCmd, capturedCmd)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
+	var capturedContainerName string
+	var capturedCmd string
+	containerName := "mariadb-container"
+	dbName := "mydb"
+	username := "myuser"
+	password := "mypass"
+	dstPath := "/dst"
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: dstPath,
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			containerExec: func(containerName string, cmd string) error {
+				capturedContainerName = containerName
+				capturedCmd = cmd
+				return nil
+			},
+		},
+		containerName: containerName,
+		dbName:        dbName,
+		username:      username,
+		password:      password,
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedContainerName != containerName {
+		t.Errorf("expected container name %q, got %q", containerName, capturedContainerName)
+	}
+	expectedCmd := `/bin/bash -c "MYSQL_PWD='mypass' mariadb-dump --user myuser mydb" > /dst/mydb.sql`
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command:\n%q\ngot:\n%q", expectedCmd, capturedCmd)
+	}
+}
+
+func TestMariaDBLocalBackup_Run_PasswordQuoting(t *testing.T) {
+	var capturedCmd string
+	password := "pass'with'quotes"
+	backup := &MariaDBLocalBackup{
+		baseLocalBackup: &baseLocalBackup{
+			dstPath: "/dst",
+			files:   &mockFilesHandler{},
+		},
+		dockerRunner: &mockDockerRunner{
+			containerExec: func(containerName string, cmd string) error {
+				capturedCmd = cmd
+				return nil
+			},
+		},
+		containerName: "mariadb-container",
+		dbName:        "testdb",
+		username:      "testuser",
+		password:      password,
+	}
+
+	err := backup.Run()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	// The password should be properly quoted with shQuote
+	expectedQuotedPass := `'pass'"'"'with'"'"'quotes'`
+	if !strings.Contains(capturedCmd, expectedQuotedPass) {
+		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
+	}
+}
