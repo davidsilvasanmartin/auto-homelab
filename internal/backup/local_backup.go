@@ -208,8 +208,8 @@ func (m *MySQLLocalBackup) Run() error {
 	return nil
 }
 
-// MariaDBBackup handles MariaDB database backups using docker exec
-type MariaDBBackup struct {
+// MariaDBLocalBackup handles MariaDB database backups using docker exec
+type MariaDBLocalBackup struct {
 	*baseLocalBackup
 	dockerRunner  docker.Runner
 	containerName string
@@ -218,9 +218,9 @@ type MariaDBBackup struct {
 	password      string
 }
 
-// NewMariaDBBackup creates a new MariaDB backup instance
-func NewMariaDBBackup(containerName, dbName, username, password, dstPath string) *MariaDBBackup {
-	return &MariaDBBackup{
+// NewMariaDBLocalBackup creates a new MariaDB backup instance
+func NewMariaDBLocalBackup(containerName, dbName, username, password, dstPath string) *MariaDBLocalBackup {
+	return &MariaDBLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
 			system.NewDefaultFilesHandler(),
@@ -234,7 +234,7 @@ func NewMariaDBBackup(containerName, dbName, username, password, dstPath string)
 }
 
 // Run executes the MariaDB backup
-func (m *MariaDBBackup) Run() error {
+func (m *MariaDBLocalBackup) Run() error {
 	slog.Info("Running MariaDB local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
 		return err

@@ -167,7 +167,7 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 	if err != nil {
 		return nil, err
 	}
-	localBackupList.Add(backup.NewMariaDBBackup(
+	localBackupList.Add(backup.NewMariaDBLocalBackup(
 		fireflyDBContainer,
 		fireflyDBName,
 		fireflyDBUser,
