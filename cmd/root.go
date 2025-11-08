@@ -16,6 +16,8 @@ var rootCmd = &cobra.Command{
 	Use:   "auto-homelab",
 	Short: "auto-homelab is a CLI to manage your homelab services and backups",
 	Long:  "A Cobra CLI app for starting services, managing backups, and restoring instances in your homelab.",
+	// Tell Cobra to NOT show the usage/help text after an error
+	SilenceUsage: true,
 	CompletionOptions: cobra.CompletionOptions{
 		// See https://github.com/spf13/cobra/issues/1507
 		HiddenDefaultCmd: true,

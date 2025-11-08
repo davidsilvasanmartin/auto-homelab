@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
-
-// TODO think about prefixing things with "Local"
 
 // LocalBackup is the interface for all backup operations
 type LocalBackup interface {
@@ -19,24 +18,18 @@ type LocalBackup interface {
 
 // baseLocalBackup contains common backup functionality
 type baseLocalBackup struct {
-	dstPath  string
-	commands system.Commands
-	files    system.FilesHandler
-	env      system.Env
+	dstPath string
+	files   system.FilesHandler
 }
 
 // newBaseLocalBackup creates a new base backup instance
 func newBaseLocalBackup(
 	dstPath string,
-	commands system.Commands,
 	files system.FilesHandler,
-	env system.Env,
 ) *baseLocalBackup {
 	return &baseLocalBackup{
-		dstPath:  dstPath,
-		commands: commands,
-		files:    files,
-		env:      env,
+		dstPath: dstPath,
+		files:   files,
 	}
 }
 
@@ -45,14 +38,13 @@ func newBaseLocalBackup(
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DirectoryLocalBackup handles directory copy operations
-// ⚠️⚠️⚠️ WARNING!! preCommand and postCommand run concurrently. We need to keep this in mind when
-// writing LocalBackup operations. E.g., we can't use preCommand="docker compose stop service"
-// and postCommand="docker compose start service" on several LocalBackup operations, because
-// they will intermix and run in unspecified order
-// TODO delete the above warning when done with new code
 type DirectoryLocalBackup struct {
 	*baseLocalBackup
-	srcPath    string
+	commands system.Commands
+	srcPath  string
+	// TODO the design of this could be better. The preCommand will typically be "docker exec something",
+	//  and at that point we have missed all the nice abstractions we have made on top of Docker with the
+	//  docker.Runner interface
 	preCommand string
 }
 
@@ -64,10 +56,9 @@ func NewDirectoryLocalBackup(
 	return &DirectoryLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
-			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
-			system.NewDefaultEnv(),
 		),
+		commands:   system.NewDefaultCommands(),
 		srcPath:    srcPath,
 		preCommand: preCommand,
 	}
@@ -105,6 +96,7 @@ func (d *DirectoryLocalBackup) Run() (string, error) {
 // PostgreSQLLocalBackup handles PostgreSQL database backups using docker exec
 type PostgreSQLLocalBackup struct {
 	*baseLocalBackup
+	dockerRunner  docker.Runner
 	containerName string
 	dbName        string
 	username      string
@@ -116,10 +108,9 @@ func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath
 	return &PostgreSQLLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
-			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
-			system.NewDefaultEnv(),
 		),
+		dockerRunner:  docker.NewSystemRunner(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -136,18 +127,20 @@ func (p *PostgreSQLLocalBackup) Run() (string, error) {
 
 	backupFile := filepath.Join(p.dstPath, p.dbName+".sql")
 
+	if err := p.dockerRunner.WaitUntilContainerExecIsSuccessful(p.containerName, "pg_isready -q"); err != nil {
+		return "", fmt.Errorf("PostgreSQL database %s not ready: %w", p.dbName, err)
+	}
+
 	quotedPassword := shQuote(p.password)
-	dockerCommand := fmt.Sprintf(
-		`docker exec -i %s /bin/bash -c "PGPASSWORD=%s pg_dump --username %s %s" > %s`,
-		p.containerName,
+	containerCmd := fmt.Sprintf(
+		`/bin/bash -c "PGPASSWORD=%s pg_dump --username %s %s" > %s`,
 		quotedPassword,
 		p.username,
 		p.dbName,
 		backupFile,
 	)
-	cmd := p.commands.ExecShellCommand(dockerCommand)
-
-	if err := cmd.Run(); err != nil {
+	err := p.dockerRunner.ContainerExec(p.containerName, containerCmd)
+	if err != nil {
 		return "", fmt.Errorf("error backing up PostgreSQL database %s: %w", p.dbName, err)
 	}
 
@@ -164,6 +157,7 @@ func shQuote(value string) string {
 // MySQLBackup handles MySQL database backups using docker exec
 type MySQLBackup struct {
 	*baseLocalBackup
+	dockerRunner  docker.Runner
 	containerName string
 	dbName        string
 	username      string
@@ -175,10 +169,9 @@ func NewMySQLBackup(containerName, dbName, username, password, dstPath string) *
 	return &MySQLBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
-			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
-			system.NewDefaultEnv(),
 		),
+		dockerRunner:  docker.NewSystemRunner(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -195,18 +188,19 @@ func (m *MySQLBackup) Run() (string, error) {
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
+	if err := m.dockerRunner.WaitUntilContainerExecIsSuccessful(m.containerName, "mysqladmin ping -h localhost --silent"); err != nil {
+		return "", fmt.Errorf("MySQL database %s not ready: %w", m.dbName, err)
+	}
+
 	quotedPassword := shQuote(m.password)
-	dockerCommand := fmt.Sprintf(
-		`docker exec -i %s /bin/bash -c "MYSQL_PWD=%s mysqldump --user %s %s" > %s`,
-		m.containerName,
+	containerCmd := fmt.Sprintf(
+		`/bin/bash -c "MYSQL_PWD=%s mysqldump --user %s %s" > %s`,
 		quotedPassword,
 		m.username,
 		m.dbName,
 		backupFile,
 	)
-	cmd := m.commands.ExecShellCommand(dockerCommand)
-
-	if err := cmd.Run(); err != nil {
+	if err := m.dockerRunner.ContainerExec(m.containerName, containerCmd); err != nil {
 		return "", fmt.Errorf("error backing up MySQL database %s: %w", m.dbName, err)
 	}
 
@@ -217,6 +211,7 @@ func (m *MySQLBackup) Run() (string, error) {
 // MariaDBBackup handles MariaDB database backups using docker exec
 type MariaDBBackup struct {
 	*baseLocalBackup
+	dockerRunner  docker.Runner
 	containerName string
 	dbName        string
 	username      string
@@ -228,10 +223,9 @@ func NewMariaDBBackup(containerName, dbName, username, password, dstPath string)
 	return &MariaDBBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
-			system.NewDefaultCommands(),
 			system.NewDefaultFilesHandler(),
-			system.NewDefaultEnv(),
 		),
+		dockerRunner:  docker.NewSystemRunner(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -248,18 +242,19 @@ func (m *MariaDBBackup) Run() (string, error) {
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
+	if err := m.dockerRunner.WaitUntilContainerExecIsSuccessful(m.containerName, "mariadb-admin ping -h localhost --silent"); err != nil {
+		return "", fmt.Errorf("MariaDB database %s not ready: %w", m.dbName, err)
+	}
+
 	quotedPassword := shQuote(m.password)
-	dockerCommand := fmt.Sprintf(
-		`docker exec -i %s /bin/bash -c "MYSQL_PWD=%s mariadb-dump --user %s %s" > %s`,
-		m.containerName,
+	containerCmd := fmt.Sprintf(
+		`/bin/bash -c "MYSQL_PWD=%s mariadb-dump --user %s %s" > %s`,
 		quotedPassword,
 		m.username,
 		m.dbName,
 		backupFile,
 	)
-	cmd := m.commands.ExecShellCommand(dockerCommand)
-
-	if err := cmd.Run(); err != nil {
+	if err := m.dockerRunner.ContainerExec(m.containerName, containerCmd); err != nil {
 		return "", fmt.Errorf("error backing up MariaDB database %s: %w", m.dbName, err)
 	}
 

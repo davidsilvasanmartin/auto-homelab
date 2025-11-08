@@ -41,6 +41,7 @@ type mockStdlib struct {
 	execLookPath func(file string) (string, error)
 	mkdirAll     func(path string, mode os.FileMode) error
 	removeAll    func(path string) error
+	sleep        func(d time.Duration)
 }
 
 func (m *mockStdlib) Getwd() (string, error) {
@@ -83,4 +84,10 @@ func (m *mockStdlib) RemoveAll(path string) error {
 		return m.removeAll(path)
 	}
 	return nil
+}
+
+func (m *mockStdlib) Sleep(d time.Duration) {
+	if m.sleep != nil {
+		m.sleep(d)
+	}
 }
