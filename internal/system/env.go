@@ -6,6 +6,7 @@ import (
 )
 
 type Env interface {
+	// GetRequiredEnv gets a required environment variable or returns an error
 	GetRequiredEnv(varName string) (string, error)
 }
 
@@ -20,7 +21,6 @@ func NewDefaultEnv() *DefaultEnv {
 	}
 }
 
-// GetRequiredEnv gets a required environment variable or returns an error
 func (d *DefaultEnv) GetRequiredEnv(varName string) (string, error) {
 	value, exists := d.LookupEnv(varName)
 	if !exists {

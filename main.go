@@ -10,23 +10,24 @@ import (
 
 func main() {
 	if err := requireCommand("docker"); err != nil {
-		exitWithError("A command was not found. Is it installed in PATH?", "command", "docker")
+		exitWithCommandMissingError("docker")
 	}
 	if err := requireCommand("restic"); err != nil {
-		exitWithError("A command was not found. Is it installed in PATH?", "command", "restic")
+		exitWithCommandMissingError("restic")
 	}
 	if err := requireCommand("sh"); err != nil {
-		exitWithError("A command was not found. Is it installed in PATH?", "command", "sh")
+		exitWithCommandMissingError("sh")
 	}
 	if err := requireCommand("cp"); err != nil {
 		// In this project we call the system's "cp" command to copy files or directories. This is just lazy
-		// of me because I don't want to maintain the code required to do this. In the future we can
+		// of me because I don't want to maintain the Go code required to do this. In the future we can
 		// use a library or write custom code to handle this scenario
-		exitWithError("A command was not found. Is it installed in PATH?", "command", "cp")
+		exitWithCommandMissingError("cp")
 	}
 	if err := cmd.Execute(); err != nil {
 		// Cobra already prints the error; ensure non-zero exit for failure cases
-		exitWithError("Command execution failed", "error", err.Error())
+		slog.Error("Command execution failed", "error", err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -35,7 +36,7 @@ func requireCommand(command string) error {
 	return err
 }
 
-func exitWithError(msg string, args ...any) {
-	slog.Error(msg, args...)
-	os.Exit(1)
+func exitWithCommandMissingError(command string) {
+	slog.Error("A command was not found. Is it installed in PATH?", "command", command)
+	os.Exit(2)
 }
