@@ -34,7 +34,7 @@ func (l *LocalBackupList) RunAll() error {
 		wg.Add(1)
 		go func(op LocalBackup) {
 			defer wg.Done()
-			if _, err := op.Run(); err != nil {
+			if err := op.Run(); err != nil {
 				errChan <- fmt.Errorf("%w: %w", ErrBackupOperationFailed, err)
 			}
 		}(operation)

@@ -12,8 +12,8 @@ import (
 
 // LocalBackup is the interface for all backup operations
 type LocalBackup interface {
-	// Run executes the backup operation and returns the path to the backup
-	Run() (string, error)
+	// Run executes the backup operation
+	Run() error
 }
 
 // baseLocalBackup contains common backup functionality
@@ -65,10 +65,10 @@ func NewDirectoryLocalBackup(
 }
 
 // Run executes the directory backup operation
-func (d *DirectoryLocalBackup) Run() (string, error) {
+func (d *DirectoryLocalBackup) Run() error {
 	slog.Info("Running directory local backup", "srcPath", d.srcPath, "dstPath", d.dstPath)
 	if err := d.files.CreateDirIfNotExists(d.dstPath); err != nil {
-		return "", err
+		return err
 	}
 
 	// Run pre-command if provided
@@ -76,21 +76,21 @@ func (d *DirectoryLocalBackup) Run() (string, error) {
 		slog.Info("Running pre-command", "preCommand", d.preCommand)
 		cmd := d.commands.ExecShellCommand(d.preCommand)
 		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("pre-command failed: %w", err)
+			return fmt.Errorf("pre-command failed: %w", err)
 		}
 		slog.Info("Successfully ran pre-command", "preCommand", d.preCommand)
 	}
 
 	if err := d.files.RequireDir(d.srcPath); err != nil {
-		return "", err
+		return err
 	}
 
 	if err := d.files.CopyDir(d.srcPath, d.dstPath); err != nil {
-		return "", err
+		return err
 	}
 
 	slog.Info("Directory local backup ran successfully", "srcPath", d.srcPath, "dstPath", d.dstPath)
-	return "", nil
+	return nil
 }
 
 // PostgreSQLLocalBackup handles PostgreSQL database backups using docker exec
@@ -119,16 +119,16 @@ func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath
 }
 
 // Run executes the PostgreSQL backup
-func (p *PostgreSQLLocalBackup) Run() (string, error) {
+func (p *PostgreSQLLocalBackup) Run() error {
 	slog.Info("Running PostgreSQL local backup", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath)
 	if err := p.files.CreateDirIfNotExists(p.dstPath); err != nil {
-		return "", err
+		return err
 	}
 
 	backupFile := filepath.Join(p.dstPath, p.dbName+".sql")
 
 	if err := p.dockerRunner.WaitUntilContainerExecIsSuccessful(p.containerName, "pg_isready -q"); err != nil {
-		return "", fmt.Errorf("PostgreSQL database %s not ready: %w", p.dbName, err)
+		return fmt.Errorf("PostgreSQL database %s not ready: %w", p.dbName, err)
 	}
 
 	quotedPassword := shQuote(p.password)
@@ -141,11 +141,11 @@ func (p *PostgreSQLLocalBackup) Run() (string, error) {
 	)
 	err := p.dockerRunner.ContainerExec(p.containerName, containerCmd)
 	if err != nil {
-		return "", fmt.Errorf("error backing up PostgreSQL database %s: %w", p.dbName, err)
+		return fmt.Errorf("error backing up PostgreSQL database %s: %w", p.dbName, err)
 	}
 
-	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath)
-	return backupFile, nil
+	slog.Info("PostgreSQL local backup ran successfully", "containerName", p.containerName, "dbName", p.dbName, "dstPath", p.dstPath, "backupFile", backupFile)
+	return nil
 }
 
 // shQuote Wrap a string in single quotes for POSIX shells, escaping any embedded single quotes safely.
@@ -180,16 +180,16 @@ func NewMySQLBackup(containerName, dbName, username, password, dstPath string) *
 }
 
 // Run executes the MySQL backup
-func (m *MySQLBackup) Run() (string, error) {
+func (m *MySQLBackup) Run() error {
 	slog.Info("Running MySQL local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
-		return "", err
+		return err
 	}
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
 	if err := m.dockerRunner.WaitUntilContainerExecIsSuccessful(m.containerName, "mysqladmin ping -h localhost --silent"); err != nil {
-		return "", fmt.Errorf("MySQL database %s not ready: %w", m.dbName, err)
+		return fmt.Errorf("MySQL database %s not ready: %w", m.dbName, err)
 	}
 
 	quotedPassword := shQuote(m.password)
@@ -201,11 +201,11 @@ func (m *MySQLBackup) Run() (string, error) {
 		backupFile,
 	)
 	if err := m.dockerRunner.ContainerExec(m.containerName, containerCmd); err != nil {
-		return "", fmt.Errorf("error backing up MySQL database %s: %w", m.dbName, err)
+		return fmt.Errorf("error backing up MySQL database %s: %w", m.dbName, err)
 	}
 
-	slog.Info("MySQL local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
-	return backupFile, nil
+	slog.Info("MySQL local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath, "backupFile", backupFile)
+	return nil
 }
 
 // MariaDBBackup handles MariaDB database backups using docker exec
@@ -234,16 +234,16 @@ func NewMariaDBBackup(containerName, dbName, username, password, dstPath string)
 }
 
 // Run executes the MariaDB backup
-func (m *MariaDBBackup) Run() (string, error) {
+func (m *MariaDBBackup) Run() error {
 	slog.Info("Running MariaDB local backup", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
 	if err := m.files.CreateDirIfNotExists(m.dstPath); err != nil {
-		return "", err
+		return err
 	}
 
 	backupFile := filepath.Join(m.dstPath, m.dbName+".sql")
 
 	if err := m.dockerRunner.WaitUntilContainerExecIsSuccessful(m.containerName, "mariadb-admin ping -h localhost --silent"); err != nil {
-		return "", fmt.Errorf("MariaDB database %s not ready: %w", m.dbName, err)
+		return fmt.Errorf("MariaDB database %s not ready: %w", m.dbName, err)
 	}
 
 	quotedPassword := shQuote(m.password)
@@ -255,9 +255,9 @@ func (m *MariaDBBackup) Run() (string, error) {
 		backupFile,
 	)
 	if err := m.dockerRunner.ContainerExec(m.containerName, containerCmd); err != nil {
-		return "", fmt.Errorf("error backing up MariaDB database %s: %w", m.dbName, err)
+		return fmt.Errorf("error backing up MariaDB database %s: %w", m.dbName, err)
 	}
 
-	slog.Info("MariaDB local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath)
-	return backupFile, nil
+	slog.Info("MariaDB local backup ran successfully", "containerName", m.containerName, "dbName", m.dbName, "dstPath", m.dstPath, "backupFile", backupFile)
+	return nil
 }

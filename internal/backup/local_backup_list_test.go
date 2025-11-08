@@ -10,14 +10,14 @@ import (
 
 // mockLocalBackup is a mock implementation of LocalBackup for testing
 type mockLocalBackup struct {
-	runFunc func() (string, error)
+	runFunc func() error
 }
 
-func (m *mockLocalBackup) Run() (string, error) {
+func (m *mockLocalBackup) Run() error {
 	if m.runFunc != nil {
 		return m.runFunc()
 	}
-	return "", nil
+	return nil
 }
 
 func TestLocalBackupList_RunAll_ThreeSuccessful(t *testing.T) {
@@ -25,11 +25,11 @@ func TestLocalBackupList_RunAll_ThreeSuccessful(t *testing.T) {
 	list := NewLocalBackupList()
 	for i := 0; i < 3; i++ {
 		list.Add(&mockLocalBackup{
-			runFunc: func() (string, error) {
+			runFunc: func() error {
 				// Simulate some work
 				time.Sleep(10 * time.Nanosecond)
 				executionCount.Add(1)
-				return "/backup/path", nil
+				return nil
 			},
 		})
 	}
@@ -51,23 +51,23 @@ func TestLocalBackupList_RunAll_SecondAndThirdFail(t *testing.T) {
 	list := NewLocalBackupList()
 	// First backup succeeds
 	list.Add(&mockLocalBackup{
-		runFunc: func() (string, error) {
+		runFunc: func() error {
 			executionCount.Add(1)
-			return "/backup/1", nil
+			return nil
 		},
 	})
 	// Second backup fails
 	list.Add(&mockLocalBackup{
-		runFunc: func() (string, error) {
+		runFunc: func() error {
 			executionCount.Add(1)
-			return "", errorFrom2
+			return errorFrom2
 		},
 	})
 	// Third backup fails
 	list.Add(&mockLocalBackup{
-		runFunc: func() (string, error) {
+		runFunc: func() error {
 			executionCount.Add(1)
-			return "", errorFrom3
+			return errorFrom3
 		},
 	})
 
@@ -95,8 +95,8 @@ func TestLocalBackupList_RunAll_AllFail(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		backupNum := i
 		list.Add(&mockLocalBackup{
-			runFunc: func() (string, error) {
-				return "", errors.New(fmt.Sprintf("backup %d crashed", backupNum))
+			runFunc: func() error {
+				return errors.New(fmt.Sprintf("backup %d crashed", backupNum))
 			},
 		})
 	}
@@ -129,9 +129,9 @@ func TestLocalBackupList_RunAll_ConcurrentExecution(t *testing.T) {
 	// Add 3 backups, each taking 50ms
 	for i := 0; i < 3; i++ {
 		list.Add(&mockLocalBackup{
-			runFunc: func() (string, error) {
+			runFunc: func() error {
 				time.Sleep(50 * time.Millisecond)
-				return "", nil
+				return nil
 			},
 		})
 	}
