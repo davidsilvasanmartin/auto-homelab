@@ -7,21 +7,25 @@ docker := "docker"
 default:
     @just --list --unsorted
 
+# [ HELP] Show help of the main script
+help:
+    go run . -h
+
 # [🔧 APP] Interactive script that creates a `.env.<timestamp>` file
 configure:
     if [  -f ".env" ]; then {{uv}} run --env-file=.env -m scripts.configuration.configure; else {{uv}} run -m scripts.configuration.configure; fi
 
 # [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
-start service="":
-    if [ -n "{{service}}" ]; then {{docker}} compose up -d {{service}}; else {{docker}} compose up -d; fi
+start *services="":
+    go run . --log-level debug start {{services}}
 
 # [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre`
-stop service="":
-    if [ -n "{{service}}" ]; then {{docker}} compose stop {{service}}; else {{docker}} compose stop; fi
+stop *services="":
+    go run . --log-level debug stop {{services}}
 
 # [🔧 APP] Creates a local backup of all services' data
 backup-local:
-    {{uv}} run --env-file=.env -m scripts.backup.local
+    go run . --log-level debug backup local
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:
@@ -46,9 +50,13 @@ fix-perms:
     echo ${UID_CURR}; \
     echo ${GID_CURR};
 
-# [🧪 DEV] Runs the tests of Python scripts
+# [🧪 DEV] Runs the tests of Go scripts
 dev-test:
-    {{uv}} run --env-file=.env -m pytest scripts/tests
+    go test ./...
+
+# [🧪 DEV] Runs the tests of Go scripts, ignoring cache
+dev-test-no-cache:
+    go test ./... -count=1
 
 # TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
 # [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`
@@ -73,7 +81,7 @@ dev-check-types:
 
 # [🧪 DEV] Format all files
 dev-fmt:
-    {{uv}} run ruff format .
+    go fmt ./...
 
 # [🧪 DEV] Explains a linting rule. Example: `just dev-explain F401`
 dev-explain linting-rule:

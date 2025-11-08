@@ -3,6 +3,8 @@ package cmd
 import (
 	"log/slog"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
+
 	"github.com/spf13/cobra"
 )
 
@@ -11,24 +13,34 @@ func init() {
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start [service]",
-	Short: "Start a service (or all services)",
-	Long:  "Starts a service in your homelab. If no service is provided, this would start all services.",
-	Args:  cobra.MaximumNArgs(1),
+	Use:   "start [service1 service2 ...]",
+	Short: "Start services (or all services if none specified)",
+	Long:  "Starts services in your homelab. If no service is provided, this would start all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return startAllServices()
-		}
-		return startOneService(args[0])
+		runner := docker.NewSystemRunner()
+		return startServices(runner, args...)
 	},
 }
 
-func startAllServices() error {
-	slog.Info("Starting all services...")
-	return nil
-}
+// startServices starts services by using docker compose.
+// If the service is empty, starts all services
+func startServices(dockerRunner docker.Runner, services ...string) error {
+	if len(services) == 0 {
+		slog.Info("Starting all services...")
+	} else {
+		slog.Info("Starting services", "services", services)
+	}
 
-func startOneService(service string) error {
-	slog.Info("Starting service", "service", service)
+	err := dockerRunner.ComposeStart(services)
+	if err != nil {
+		return err
+	}
+
+	if len(services) == 0 {
+		slog.Info("Successfully started all services")
+	} else {
+		slog.Info("Successfully started services", "services", services)
+	}
+
 	return nil
 }
