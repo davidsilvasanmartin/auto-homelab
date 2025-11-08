@@ -1,8 +1,14 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"sync"
+)
+
+var (
+	ErrBackupOperationFailed          = errors.New("backup operation failed")
+	ErrMultipleBackupOperationsFailed = errors.New("multiple backup operations failed")
 )
 
 type LocalBackupList struct {
@@ -29,7 +35,7 @@ func (l *LocalBackupList) RunAll() error {
 		go func(op LocalBackup) {
 			defer wg.Done()
 			if _, err := op.Run(); err != nil {
-				errChan <- fmt.Errorf("backup operation failed: %w", err)
+				errChan <- fmt.Errorf("%w: %w", ErrBackupOperationFailed, err)
 			}
 		}(operation)
 	}
@@ -44,7 +50,14 @@ func (l *LocalBackupList) RunAll() error {
 	}
 
 	if len(errs) != 0 {
-		return fmt.Errorf("%d backup operations failed: %v", len(errs), errs)
+		// We need Join to properly wrap the original error (see explanation in docs)
+		joinedErr := errors.Join(errs...)
+		return fmt.Errorf(
+			"%w (%d operations): %w",
+			ErrMultipleBackupOperationsFailed,
+			len(errs),
+			joinedErr,
+		)
 	}
 
 	return nil

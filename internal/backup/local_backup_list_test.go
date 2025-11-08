@@ -3,7 +3,6 @@ package backup
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -80,16 +79,14 @@ func TestLocalBackupList_RunAll_SecondAndThirdFail(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when backups fail, got nil")
 	}
-	expectedMsgParts := []string{
-		"2 backup operations failed:",
-		"backup operation failed: backup 2 crashed",
-		"backup operation failed: backup 3 crashed",
+	if !errors.Is(err, ErrMultipleBackupOperationsFailed) {
+		t.Errorf("wrong error, got: %v", err)
 	}
-	actualMsg := err.Error()
-	for _, expectedMsg := range expectedMsgParts {
-		if !strings.Contains(actualMsg, expectedMsg) {
-			t.Errorf("expected error message to contain %q, got %q", expectedMsg, actualMsg)
-		}
+	if !errors.Is(err, errorFrom2) {
+		t.Errorf("expected error to contain backup 2 error")
+	}
+	if !errors.Is(err, errorFrom3) {
+		t.Errorf("expected error to contain backup 3 error")
 	}
 }
 
@@ -109,17 +106,11 @@ func TestLocalBackupList_RunAll_AllFail(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when all backups fail, got nil")
 	}
-	expectedMsgParts := []string{
-		"3 backup operations failed:",
-		"backup operation failed: backup 1 crashed",
-		"backup operation failed: backup 2 crashed",
-		"backup operation failed: backup 3 crashed",
+	if !errors.Is(err, ErrMultipleBackupOperationsFailed) {
+		t.Errorf("wrong error, got: %v", err)
 	}
-	actualMsg := err.Error()
-	for _, expectedMsg := range expectedMsgParts {
-		if !strings.Contains(actualMsg, expectedMsg) {
-			t.Errorf("expected error messag to contain %q, got %q", expectedMsg, actualMsg)
-		}
+	if !errors.Is(err, ErrBackupOperationFailed) {
+		t.Errorf("expected error to wrap individual errors, got: %v", err)
 	}
 }
 

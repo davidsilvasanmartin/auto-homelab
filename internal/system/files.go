@@ -26,6 +26,17 @@ const (
 	defaultDirPerms os.FileMode = 0o755
 )
 
+var (
+	ErrPathNotAbsolute      = errors.New("path is not absolute")
+	ErrRequiredFileNotFound = errors.New("required file not found")
+	ErrRequiredDirNotFound  = errors.New("required directory not found")
+	ErrNotADir              = errors.New("path is not a directory")
+	ErrFailedToCreateDir    = errors.New("failed to create directory")
+	ErrFailedToRemoveDir    = errors.New("failed to remove directory")
+	ErrFailedToCopyDir      = errors.New("failed to copy directory")
+	ErrFailedToCheckPath    = errors.New("failed to check file or directory at path")
+)
+
 type DefaultFilesHandler struct {
 	stdlib stdlib
 }
@@ -38,11 +49,11 @@ func NewDefaultFilesHandler() *DefaultFilesHandler {
 
 func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
+		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, path)
 	}
 	cleanPath := filepath.Clean(path)
 	if err := d.stdlib.MkdirAll(cleanPath, defaultDirPerms); err != nil {
-		return fmt.Errorf("failed to create directory %q: %w", cleanPath, err)
+		return fmt.Errorf("%w %q: %w", ErrFailedToCreateDir, cleanPath, err)
 	}
 	slog.Debug("Created directory", "path", path)
 	return nil
@@ -55,7 +66,7 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 
 	cwd, err := d.stdlib.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get current working directory: %w", err)
+		return fmt.Errorf("%w %q: %w", ErrFailedToCheckPath, ".", err)
 	}
 
 	var missingFiles []string
@@ -66,13 +77,13 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 				missingFiles = append(missingFiles, file)
 			} else {
 				// Some other error returned (permission denied, etc.)
-				return fmt.Errorf("failed to check file %s: %w", path, err)
+				return fmt.Errorf("%w %q: %w", ErrFailedToCheckPath, path, err)
 			}
 		}
 	}
 
 	if len(missingFiles) > 0 {
-		return fmt.Errorf("required filenames not found: %s", strings.Join(missingFiles, ", "))
+		return fmt.Errorf("%w: %s", ErrRequiredFileNotFound, strings.Join(missingFiles, ", "))
 	}
 
 	return nil
@@ -81,48 +92,49 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 // RequireDir requires that a directory exists, or throws an error if it doesn't
 func (d *DefaultFilesHandler) RequireDir(path string) error {
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
+		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, path)
 	}
 	if stat, err := d.stdlib.Stat(path); err != nil && errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("required directory not found: %s", path)
+		return fmt.Errorf("%w: %s", ErrRequiredDirNotFound, path)
 	} else if err != nil {
-		return fmt.Errorf("failed to check file %s: %w", path, err)
+		return fmt.Errorf("%w %q: %w", ErrFailedToCheckPath, path, err)
 	} else if !stat.IsDir() {
-		return fmt.Errorf("source path %s is not a directory", path)
+		return fmt.Errorf("%w: %q", ErrNotADir, path)
 	}
 	return nil
 }
 
 // EmptyDir empties a directory if it exists. If the directory does not exist, this method will create it
 func (d *DefaultFilesHandler) EmptyDir(path string) error {
-	slog.Debug("Emptying directory", "path", path)
+	cleanPath := filepath.Clean(path)
+	slog.Debug("Emptying directory", "path", cleanPath)
 
-	if !filepath.IsAbs(path) {
-		return fmt.Errorf("path is not absolute: %q. Please use an absolute path", path)
+	if !filepath.IsAbs(cleanPath) {
+		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, cleanPath)
 	}
 
-	// TODO clean the path, and TEST (see `TestDefaultFilesHandler_CreateDirIfNotExists_CleansDirtyPath`)
-	if err := d.stdlib.RemoveAll(path); err != nil {
-		return fmt.Errorf("error removing directory %q: %w", path, err)
+	if err := d.stdlib.RemoveAll(cleanPath); err != nil {
+		return fmt.Errorf("%w %q: %w", ErrFailedToRemoveDir, cleanPath, err)
 	}
 
-	if err := d.CreateDirIfNotExists(path); err != nil {
+	if err := d.CreateDirIfNotExists(cleanPath); err != nil {
 		return err
 	}
 
-	slog.Debug("Directory emptied successfully", "path", path)
+	slog.Debug("Directory emptied successfully", "path", cleanPath)
 	return nil
 }
 
-// CopyDir copies a directory by using the system's cp command. This is not portable: if we want the project to work
-// on Windows, we will have to change this
+// CopyDir copies a directory by using the system's cp command. Accepts absolute or relative paths.
+// Using cp is not portable: if we want the project to work on Windows, we will have to change this
 func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
-	// TODO think about requiring absolute paths
-	slog.Debug("Copying directory", "srcPath", srcPath, "dstPath", dstPath)
-	cmd := d.stdlib.ExecCommand("cp", "-r", srcPath, dstPath)
+	cleanSrcPath := filepath.Clean(srcPath)
+	cleanDstPath := filepath.Clean(dstPath)
+	slog.Debug("Copying directory", "srcPath", cleanSrcPath, "dstPath", cleanDstPath)
+	cmd := d.stdlib.ExecCommand("cp", "-r", cleanSrcPath, cleanDstPath)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to copy directory: %w", err)
+		return fmt.Errorf("%w (%q to %q): %w", ErrFailedToCopyDir, cleanSrcPath, cleanDstPath, err)
 	}
-	slog.Debug("Successfully copied directory", "srcPath", srcPath, "dstPath", dstPath)
+	slog.Debug("Successfully copied directory", "srcPath", cleanSrcPath, "dstPath", cleanDstPath)
 	return nil
 }

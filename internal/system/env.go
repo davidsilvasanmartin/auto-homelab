@@ -1,6 +1,7 @@
 package system
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -9,6 +10,10 @@ type Env interface {
 	// GetRequiredEnv gets a required environment variable or returns an error
 	GetRequiredEnv(varName string) (string, error)
 }
+
+var (
+	ErrRequiredEnvNotFound = errors.New("missing required environment variable")
+)
 
 type DefaultEnv struct {
 	// LookupEnv wraps os.LookupEnv
@@ -24,7 +29,7 @@ func NewDefaultEnv() *DefaultEnv {
 func (d *DefaultEnv) GetRequiredEnv(varName string) (string, error) {
 	value, exists := d.LookupEnv(varName)
 	if !exists {
-		return "", fmt.Errorf("missing required environment variable: %s", varName)
+		return "", fmt.Errorf("%w: %q", ErrRequiredEnvNotFound, varName)
 	}
 	return value, nil
 }

@@ -3,6 +3,7 @@ package system
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -41,9 +42,8 @@ func TestDefaultFilesHandler_CreateDirIfNotExists_PathNotAbs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when path is relative, got nil")
 	}
-	expectedMsg := "path is not absolute: \"relative/path\". Please use an absolute path"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrPathNotAbsolute) {
+		t.Errorf("expected ErrPathNotAbsolute, got: %v", err)
 	}
 }
 
@@ -82,12 +82,11 @@ func TestDefaultFilesHandler_CreateDirIfNotExists_MkdirAllError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when MkdirAll fails, got nil")
 	}
+	if !errors.Is(err, ErrFailedToCreateDir) {
+		t.Errorf("expected ErrFailedToCreateDir, got: %v", err)
+	}
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
-	}
-	expectedMsg := "failed to create directory \"/home/user/restricteddir\": permission denied"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}
 }
 
@@ -140,9 +139,11 @@ func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when file is missing, got nil")
 	}
-	expectedMsg := "required filenames not found: missing.txt"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrRequiredFileNotFound) {
+		t.Errorf("expected ErrRequiredFileNotFound, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "missing.txt") {
+		t.Errorf("expected error message to contain %q, got %q", "missing.txt", err.Error())
 	}
 }
 
@@ -165,9 +166,14 @@ func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T)
 	if err == nil {
 		t.Fatal("expected error when files are missing, got nil")
 	}
-	expectedMsg := "required filenames not found: missing1.txt, missing2.txt"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrRequiredFileNotFound) {
+		t.Errorf("expected ErrRequiredFileNotFound, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "missing1.txt") {
+		t.Errorf("expected error message to contain %q, got %q", "missing1.txt", err.Error())
+	}
+	if !strings.Contains(err.Error(), "missing2.txt") {
+		t.Errorf("expected error message to contain %q, got %q", "missing2.txt", err.Error())
 	}
 }
 
@@ -184,6 +190,9 @@ func TestDefaultFilesHandler_RequireFilesInWd_GetwdError(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error when Getwd fails, got nil")
+	}
+	if !errors.Is(err, ErrFailedToCheckPath) {
+		t.Errorf("expected ErrFailedToCheckPath, got: %v", err)
 	}
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
@@ -209,6 +218,9 @@ func TestDefaultFilesHandler_RequireFilesInWd_StatError(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error when Stat fails, got nil")
+	}
+	if !errors.Is(err, ErrFailedToCheckPath) {
+		t.Errorf("expected ErrFailedToCheckPath, got: %v", err)
 	}
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
@@ -253,9 +265,8 @@ func TestDefaultFilesHandler_RequireDir_PathNotAbs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when path is relative, got nil")
 	}
-	expectedMsg := "path is not absolute: \"./dir/subdir\". Please use an absolute path"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrPathNotAbsolute) {
+		t.Errorf("expected ErrPathNotAbsolute, got: %v", err)
 	}
 }
 
@@ -266,15 +277,18 @@ func TestDefaultFilesHandler_RequireDir_NotFound(t *testing.T) {
 		},
 	}
 	files := &DefaultFilesHandler{stdlib: std}
+	path := "/home/user/dir"
 
-	err := files.RequireDir("/home/user/dir")
+	err := files.RequireDir(path)
 
 	if err == nil {
 		t.Fatal("expected error when dir missing, got nil")
 	}
-	expectedMsg := "required directory not found: /home/user/dir"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrRequiredDirNotFound) {
+		t.Errorf("expected ErrRequiredDirNotFound, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("expected error message to contain path %q, got %q", path, err.Error())
 	}
 }
 
@@ -285,15 +299,18 @@ func TestDefaultFilesHandler_RequireDir_GenericError(t *testing.T) {
 		},
 	}
 	files := &DefaultFilesHandler{stdlib: std}
+	path := "/home/user/dir"
 
-	err := files.RequireDir("/home/user/dir")
+	err := files.RequireDir(path)
 
 	if err == nil {
 		t.Fatal("expected error when dir cannot be checked, got nil")
 	}
-	expectedMsg := "failed to check file /home/user/dir: permission denied"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrFailedToCheckPath) {
+		t.Errorf("expected ErrFailedToCheckPath, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("expected error message to contain path %q, got %q", path, err.Error())
 	}
 }
 
@@ -314,9 +331,11 @@ func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when dir is a file, got nil")
 	}
-	expectedMsg := "source path /home/user/file.txt is not a directory"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrNotADir) {
+		t.Errorf("expected ErrNotADir, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "/home/user/file.txt") {
+		t.Errorf("expected error message to contain path %q, got %q", "/home/user/file.txt", err.Error())
 	}
 }
 
@@ -372,6 +391,34 @@ func TestDefaultFilesHandler_EmptyDir_Success(t *testing.T) {
 	}
 }
 
+func TestDefaultFilesHandler_EmptyDir_CleansPath(t *testing.T) {
+	var removedPath string
+	var createdPath string
+	std := &mockStdlib{
+		removeAll: func(path string) error {
+			removedPath = path
+			return nil
+		},
+		mkdirAll: func(path string, mode os.FileMode) error {
+			createdPath = path
+			return nil
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.EmptyDir("/home//./user/../user///targetdir")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if removedPath != "/home/user/targetdir" {
+		t.Errorf("expected clean removed path %q, got %q", "/home/user/targetdir", removedPath)
+	}
+	if createdPath != "/home/user/targetdir" {
+		t.Errorf("expected clean created path %q, got %q", "/home/user/targetdir", createdPath)
+	}
+}
+
 func TestDefaultFilesHandler_EmptyDir_PathNotAbs(t *testing.T) {
 	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
 
@@ -380,9 +427,8 @@ func TestDefaultFilesHandler_EmptyDir_PathNotAbs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when path is relative, got nil")
 	}
-	expectedMsg := "path is not absolute: \"relative/path\". Please use an absolute path"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrPathNotAbsolute) {
+		t.Errorf("expected ErrPathNotAbsolute, got: %v", err)
 	}
 }
 
@@ -394,8 +440,9 @@ func TestDefaultFilesHandler_EmptyDir_RemoveAllError(t *testing.T) {
 		},
 	}
 	files := &DefaultFilesHandler{stdlib: std}
+	path := "/home/user/somedir"
 
-	err := files.EmptyDir("/home/user/somedir")
+	err := files.EmptyDir(path)
 
 	if err == nil {
 		t.Fatal("expected error when RemoveAll fails, got nil")
@@ -403,9 +450,11 @@ func TestDefaultFilesHandler_EmptyDir_RemoveAllError(t *testing.T) {
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
 	}
-	expectedMsg := "error removing directory \"/home/user/somedir\": disk full"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrFailedToRemoveDir) {
+		t.Errorf("expected ErrFailedToRemoveDir, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("expected error message to contain path %q, got %q", path, err.Error())
 	}
 }
 
@@ -420,14 +469,21 @@ func TestDefaultFilesHandler_EmptyDir_MkdirAllError(t *testing.T) {
 		},
 	}
 	files := &DefaultFilesHandler{stdlib: std}
+	path := "/home/user/restricteddir"
 
-	err := files.EmptyDir("/home/user/restricteddir")
+	err := files.EmptyDir(path)
 
 	if err == nil {
 		t.Fatal("expected error when MkdirAll fails, got nil")
 	}
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+	if !errors.Is(err, ErrFailedToCreateDir) {
+		t.Errorf("expected ErrFailedToCreateDir, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("expected error message to contain path %q, got %q", path, err.Error())
 	}
 }
 
@@ -462,6 +518,32 @@ func TestDefaultFilesHandler_CopyDir_Success(t *testing.T) {
 	}
 }
 
+func TestDefaultFilesHandler_CopyDir_CleansPaths(t *testing.T) {
+	var commandArgs []string
+	mockCmd := &mockRunnableCommand{
+		runFunc: func() error {
+			return nil
+		},
+	}
+	std := &mockStdlib{
+		execCommand: func(name string, arg ...string) RunnableCommand {
+			commandArgs = arg
+			return mockCmd
+		},
+	}
+	files := &DefaultFilesHandler{stdlib: std}
+
+	err := files.CopyDir("/home/./user/../user////src", "/home/./user/../user///dst")
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	expectedArgs := []string{"-r", "/home/user/src", "/home/user/dst"}
+	if diff := cmp.Diff(expectedArgs, commandArgs); diff != "" {
+		t.Errorf("args mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestDefaultFilesHandler_CopyDir_CommandError(t *testing.T) {
 	expectedErr := errors.New("source directory not found")
 	mockCmd := &mockRunnableCommand{
@@ -475,8 +557,10 @@ func TestDefaultFilesHandler_CopyDir_CommandError(t *testing.T) {
 		},
 	}
 	files := &DefaultFilesHandler{stdlib: std}
+	srcPath := "/home/user/src"
+	dstPath := "/home/user/dst"
 
-	err := files.CopyDir("/home/user/src", "/home/user/dst")
+	err := files.CopyDir(srcPath, dstPath)
 
 	if err == nil {
 		t.Fatal("expected error when cp command fails, got nil")
@@ -484,8 +568,13 @@ func TestDefaultFilesHandler_CopyDir_CommandError(t *testing.T) {
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
 	}
-	expectedMsg := "failed to copy directory: source directory not found"
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	if !errors.Is(err, ErrFailedToCopyDir) {
+		t.Errorf("expected ErrFailedToCopyDir, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), srcPath) {
+		t.Errorf("expected error message to contain path %q, got %q", srcPath, err.Error())
+	}
+	if !strings.Contains(err.Error(), dstPath) {
+		t.Errorf("expected error message to contain path %q, got %q", dstPath, err.Error())
 	}
 }

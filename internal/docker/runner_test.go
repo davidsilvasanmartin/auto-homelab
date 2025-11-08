@@ -61,7 +61,6 @@ func (m *mockFiles) CopyDir(srcPath string, dstPath string) error {
 	return nil
 }
 
-// Test that ComposeStart with no services runs: docker compose up -d
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
@@ -94,7 +93,6 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	}
 }
 
-// Test that ComposeStart with one service runs: docker compose up -d service
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
@@ -125,7 +123,6 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	}
 }
 
-// Test that ComposeStart with multiple services runs: docker compose up -d service1 service2
 func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
@@ -156,7 +153,6 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	}
 }
 
-// Test that ComposeStop with no services runs: docker compose stop
 func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
@@ -189,7 +185,6 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	}
 }
 
-// Test that ComposeStop with one service runs: docker compose stop service
 func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
@@ -220,7 +215,6 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	}
 }
 
-// Test that ComposeStop with multiple services runs: docker compose stop service1 service2
 func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 	var capturedName string
 	var capturedArgs []string
