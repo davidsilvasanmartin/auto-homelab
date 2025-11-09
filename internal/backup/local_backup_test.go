@@ -2,7 +2,6 @@ package backup
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
@@ -80,6 +79,15 @@ func (m *mockDockerRunner) ContainerExec(containerName string, cmd string) error
 		return m.containerExec(containerName, cmd)
 	}
 	return nil
+}
+
+type mockTextFormatter struct{}
+
+func (m *mockTextFormatter) WrapLines(_ string, _ uint) []string                     { return nil }
+func (m *mockTextFormatter) FormatDotenvKeyValue(_ string, _ string) (string, error) { return "", nil }
+func (m *mockTextFormatter) QuoteForPOSIXShell(key string) string {
+	// Mock the functionality of this function. We need to keep this into account in individual tests
+	return "'" + key + "'"
 }
 
 func TestDirectoryLocalBackup_Run_Success(t *testing.T) {
@@ -321,28 +329,6 @@ func TestDirectoryLocalBackup_Run_PreCommandNotExecutedWhenEmpty(t *testing.T) {
 	}
 }
 
-func Test_shQuote(t *testing.T) {
-	var tests = []struct {
-		in  string
-		out string
-	}{
-		{in: "qqq", out: "'qqq'"},
-		{in: `q"q"q`, out: `'q"q"q'`},
-		{in: `q'q'q`, out: `'q'"'"'q'"'"'q'`},
-		{in: `'`, out: `''"'"''`},
-		{in: `''`, out: `''"'"''"'"''`},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.in, func(t *testing.T) {
-			got := shQuote(tc.in)
-			if got != tc.out {
-				t.Errorf("got %q, want %q", got, tc.out)
-			}
-		})
-	}
-}
-
 func TestPostgreSQLLocalBackup_Run_Success(t *testing.T) {
 	backup := &PostgreSQLLocalBackup{
 		baseLocalBackup: &baseLocalBackup{
@@ -350,6 +336,7 @@ func TestPostgreSQLLocalBackup_Run_Success(t *testing.T) {
 			files:   &mockFilesHandler{},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "postgres-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -375,6 +362,7 @@ func TestPostgreSQLLocalBackup_Run_CreateDirError(t *testing.T) {
 			},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "postgres-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -403,6 +391,7 @@ func TestPostgreSQLLocalBackup_Run_WaitUntilContainerExecIsSuccessfulError(t *te
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "postgres-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -431,6 +420,7 @@ func TestPostgreSQLLocalBackup_Run_ContainerExecError(t *testing.T) {
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "postgres-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -463,6 +453,7 @@ func TestPostgreSQLLocalBackup_Run_CorrectReadinessCheck(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        "testdb",
 		username:      "testuser",
@@ -503,6 +494,7 @@ func TestPostgreSQLLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -523,38 +515,6 @@ func TestPostgreSQLLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 	}
 }
 
-func TestPostgreSQLLocalBackup_Run_PasswordQuoting(t *testing.T) {
-	var capturedCmd string
-	password := "pass'with'quotes"
-	backup := &PostgreSQLLocalBackup{
-		baseLocalBackup: &baseLocalBackup{
-			dstPath: "/dst",
-			files:   &mockFilesHandler{},
-		},
-		dockerRunner: &mockDockerRunner{
-			containerExec: func(containerName string, cmd string) error {
-				capturedCmd = cmd
-				return nil
-			},
-		},
-		containerName: "postgres-container",
-		dbName:        "testdb",
-		username:      "testuser",
-		password:      password,
-	}
-
-	err := backup.Run()
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	// The password should be properly quoted with shQuote
-	expectedQuotedPass := `'pass'"'"'with'"'"'quotes'`
-	if !strings.Contains(capturedCmd, expectedQuotedPass) {
-		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
-	}
-}
-
 func TestMySQLLocalBackup_Run_Success(t *testing.T) {
 	backup := &MySQLLocalBackup{
 		baseLocalBackup: &baseLocalBackup{
@@ -562,6 +522,7 @@ func TestMySQLLocalBackup_Run_Success(t *testing.T) {
 			files:   &mockFilesHandler{},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mysql-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -587,6 +548,7 @@ func TestMySQLLocalBackup_Run_CreateDirError(t *testing.T) {
 			},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mysql-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -615,6 +577,7 @@ func TestMySQLLocalBackup_Run_WaitUntilContainerExecIsSuccessfulError(t *testing
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mysql-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -643,6 +606,7 @@ func TestMySQLLocalBackup_Run_ContainerExecError(t *testing.T) {
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mysql-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -675,6 +639,7 @@ func TestMySQLLocalBackup_Run_CorrectReadinessCheck(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        "testdb",
 		username:      "testuser",
@@ -715,6 +680,7 @@ func TestMySQLLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -735,38 +701,6 @@ func TestMySQLLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 	}
 }
 
-func TestMySQLLocalBackup_Run_PasswordQuoting(t *testing.T) {
-	var capturedCmd string
-	password := "pass'with'quotes"
-	backup := &MySQLLocalBackup{
-		baseLocalBackup: &baseLocalBackup{
-			dstPath: "/dst",
-			files:   &mockFilesHandler{},
-		},
-		dockerRunner: &mockDockerRunner{
-			containerExec: func(containerName string, cmd string) error {
-				capturedCmd = cmd
-				return nil
-			},
-		},
-		containerName: "mysql-container",
-		dbName:        "testdb",
-		username:      "testuser",
-		password:      password,
-	}
-
-	err := backup.Run()
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	// The password should be properly quoted with shQuote
-	expectedQuotedPass := `'pass'"'"'with'"'"'quotes'`
-	if !strings.Contains(capturedCmd, expectedQuotedPass) {
-		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
-	}
-}
-
 func TestMariaDBLocalBackup_Run_Success(t *testing.T) {
 	backup := &MariaDBLocalBackup{
 		baseLocalBackup: &baseLocalBackup{
@@ -774,6 +708,7 @@ func TestMariaDBLocalBackup_Run_Success(t *testing.T) {
 			files:   &mockFilesHandler{},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mariadb-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -799,6 +734,7 @@ func TestMariaDBLocalBackup_Run_CreateDirError(t *testing.T) {
 			},
 		},
 		dockerRunner:  &mockDockerRunner{},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mariadb-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -827,6 +763,7 @@ func TestMariaDBLocalBackup_Run_WaitUntilContainerExecIsSuccessfulError(t *testi
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mariadb-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -855,6 +792,7 @@ func TestMariaDBLocalBackup_Run_ContainerExecError(t *testing.T) {
 				return expectedErr
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: "mariadb-container",
 		dbName:        "testdb",
 		username:      "testuser",
@@ -887,6 +825,7 @@ func TestMariaDBLocalBackup_Run_CorrectReadinessCheck(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        "testdb",
 		username:      "testuser",
@@ -927,6 +866,7 @@ func TestMariaDBLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 				return nil
 			},
 		},
+		textFormatter: &mockTextFormatter{},
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -944,37 +884,5 @@ func TestMariaDBLocalBackup_Run_CorrectBackupCommand(t *testing.T) {
 	expectedCmd := `/bin/bash -c "MYSQL_PWD='mypass' mariadb-dump --user myuser mydb" > /dst/mydb.sql`
 	if capturedCmd != expectedCmd {
 		t.Errorf("expected command:\n%q\ngot:\n%q", expectedCmd, capturedCmd)
-	}
-}
-
-func TestMariaDBLocalBackup_Run_PasswordQuoting(t *testing.T) {
-	var capturedCmd string
-	password := "pass'with'quotes"
-	backup := &MariaDBLocalBackup{
-		baseLocalBackup: &baseLocalBackup{
-			dstPath: "/dst",
-			files:   &mockFilesHandler{},
-		},
-		dockerRunner: &mockDockerRunner{
-			containerExec: func(containerName string, cmd string) error {
-				capturedCmd = cmd
-				return nil
-			},
-		},
-		containerName: "mariadb-container",
-		dbName:        "testdb",
-		username:      "testuser",
-		password:      password,
-	}
-
-	err := backup.Run()
-
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	// The password should be properly quoted with shQuote
-	expectedQuotedPass := `'pass'"'"'with'"'"'quotes'`
-	if !strings.Contains(capturedCmd, expectedQuotedPass) {
-		t.Errorf("expected command to contain quoted password %q, got command:\n%q", expectedQuotedPass, capturedCmd)
 	}
 }

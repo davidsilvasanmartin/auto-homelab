@@ -1,6 +1,7 @@
 package format
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,8 +11,12 @@ import (
 type TextFormatter interface {
 	WrapLines(text string, width uint) []string
 	FormatDotenvKeyValue(key string, value string) (string, error)
-	FormatForPOSIXShell(text string) string
+	QuoteForPOSIXShell(text string) string
 }
+
+var (
+	ErrEmptyKey = errors.New("key must not be empty")
+)
 
 type DefaultTextFormatter struct{}
 
@@ -37,11 +42,7 @@ func (d *DefaultTextFormatter) WrapLines(text string, width uint) []string {
 		wrapped := wordwrap.WrapString(paragraph, width)
 		wrappedLines := strings.Split(wrapped, "\n")
 
-		if len(wrappedLines) == 0 {
-			lines = append(lines, "")
-		} else {
-			lines = append(lines, wrappedLines...)
-		}
+		lines = append(lines, wrappedLines...)
 	}
 
 	return lines
@@ -52,7 +53,7 @@ func (d *DefaultTextFormatter) WrapLines(text string, width uint) []string {
 func (d *DefaultTextFormatter) FormatDotenvKeyValue(key string, value string) (string, error) {
 	key = strings.TrimSpace(key)
 	if key == "" {
-		return "", fmt.Errorf("key cannot be empty")
+		return "", fmt.Errorf("%w", ErrEmptyKey)
 	}
 
 	value = strings.ReplaceAll(value, `"`, `\"`)
@@ -62,6 +63,6 @@ func (d *DefaultTextFormatter) FormatDotenvKeyValue(key string, value string) (s
 
 // FormatForPOSIXShell Wraps a string in single quotes for POSIX shells, escaping any embedded single
 // quotes safely. This transforms p'q into 'p'"'"'q' which the shell interprets as a single literal string.
-func (d *DefaultTextFormatter) FormatForPOSIXShell(text string) string {
+func (d *DefaultTextFormatter) QuoteForPOSIXShell(text string) string {
 	return "'" + strings.ReplaceAll(text, "'", "'\"'\"'") + "'"
 }

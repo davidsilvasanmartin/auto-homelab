@@ -1,6 +1,7 @@
 package format
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -16,6 +17,7 @@ func TestDefaultTextFormatter_WrapLines(t *testing.T) {
 		expected []string
 	}{
 		{name: "empty", text: "", width: 120, expected: []string{""}},
+		{name: "single", text: "a", width: 120, expected: []string{"a"}},
 		{
 			name:     "short line within width",
 			text:     "short line",
@@ -112,4 +114,52 @@ func TestDefaultTextFormatter_FormatDotenvKeyValue_Success(t *testing.T) {
 	}
 }
 
-// TODO test error: empty key, space-only key
+func TestDefaultTextFormatter_FormatDotenvKeyValue_EmptyKeyError(t *testing.T) {
+	f := &DefaultTextFormatter{}
+
+	_, err := f.FormatDotenvKeyValue("", "VALUE")
+
+	if err == nil {
+		t.Fatal("expected error for empty key, got nil")
+	}
+	if !errors.Is(err, ErrEmptyKey) {
+		t.Errorf("expected ErrEmptyKey, got: %v", err)
+	}
+}
+
+// TestDefaultTextFormatter_FormatDotenvKeyValue_WhitespaceOnlyKeyError tests whitespace-only key
+func TestDefaultTextFormatter_FormatDotenvKeyValue_WhitespaceOnlyKeyError(t *testing.T) {
+	f := &DefaultTextFormatter{}
+
+	_, err := f.FormatDotenvKeyValue("   ", "VALUE")
+
+	if err == nil {
+		t.Fatal("expected error for whitespace-only key, got nil")
+	}
+	if !errors.Is(err, ErrEmptyKey) {
+		t.Errorf("expected ErrEmptyKey, got: %v", err)
+	}
+}
+
+func Test_FormatForPOSIXShell(t *testing.T) {
+	f := &DefaultTextFormatter{}
+	var tests = []struct {
+		in  string
+		out string
+	}{
+		{in: "qqq", out: "'qqq'"},
+		{in: `q"q"q`, out: `'q"q"q'`},
+		{in: `q'q'q`, out: `'q'"'"'q'"'"'q'`},
+		{in: `'`, out: `''"'"''`},
+		{in: `''`, out: `''"'"''"'"''`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.in, func(t *testing.T) {
+			got := f.QuoteForPOSIXShell(tc.in)
+			if got != tc.out {
+				t.Errorf("got %q, want %q", got, tc.out)
+			}
+		})
+	}
+}
