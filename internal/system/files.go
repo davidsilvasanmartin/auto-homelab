@@ -55,6 +55,8 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	if err := d.stdlib.MkdirAll(cleanPath, defaultDirPerms); err != nil {
 		return fmt.Errorf("%w %q: %w", ErrFailedToCreateDir, cleanPath, err)
 	}
+	// At this point it is guaranteed that the directory exists. For example, if the path was a file,
+	// MkdirAll would have returned an error
 	slog.Debug("Created directory", "path", path)
 	return nil
 }

@@ -18,6 +18,26 @@ func (m *mockEnvLookup) lookupEnv(key string) (string, bool) {
 	return "", false
 }
 
+func TestDefaultEnv_GetEnv_ReturnsLookupEnv(t *testing.T) {
+	value := "my_value"
+	exists := true
+	mock := &mockEnvLookup{
+		lookupEnvFunc: func(key string) (string, bool) {
+			return value, exists
+		},
+	}
+	env := &DefaultEnv{LookupEnv: mock.lookupEnv}
+
+	gotValue, gotExists := env.GetEnv("DB_URL")
+
+	if gotExists != exists {
+		t.Fatalf("expected exists to be %v, got %v", exists, gotExists)
+	}
+	if gotValue != value {
+		t.Errorf("expected var value %q, got %q", value, gotValue)
+	}
+}
+
 func TestDefaultEnv_GetRequiredEnv_Success(t *testing.T) {
 	varValue := "localhost:5432/db"
 	mock := &mockEnvLookup{
