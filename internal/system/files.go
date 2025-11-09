@@ -20,10 +20,15 @@ type FilesHandler interface {
 	EmptyDir(path string) error
 	// CopyDir copies a directory, from srcPath into dstPath
 	CopyDir(srcPath string, dstPath string) error
+	// Getwd gets the current working directory
+	Getwd() (dir string, err error)
+	// WriteFile writes the content to a file
+	WriteFile(path string, data []byte) error
 }
 
 const (
-	defaultDirPerms os.FileMode = 0o755
+	defaultDirPerms  os.FileMode = 0o755
+	defaultFilePerms os.FileMode = 0o644
 )
 
 var (
@@ -35,6 +40,7 @@ var (
 	ErrFailedToRemoveDir    = errors.New("failed to remove directory")
 	ErrFailedToCopyDir      = errors.New("failed to copy directory")
 	ErrFailedToCheckPath    = errors.New("failed to check file or directory at path")
+	ErrFailedToWriteFile    = errors.New("failed to write file")
 )
 
 type DefaultFilesHandler struct {
@@ -138,5 +144,18 @@ func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
 		return fmt.Errorf("%w (%q to %q): %w", ErrFailedToCopyDir, cleanSrcPath, cleanDstPath, err)
 	}
 	slog.Debug("Successfully copied directory", "srcPath", cleanSrcPath, "dstPath", cleanDstPath)
+	return nil
+}
+
+// TODO test
+func (d *DefaultFilesHandler) Getwd() (dir string, err error) {
+	return d.stdlib.Getwd()
+}
+
+// TODO test
+func (d *DefaultFilesHandler) WriteFile(path string, data []byte) error {
+	if err := d.stdlib.WriteFile(path, data, defaultFilePerms); err != nil {
+		return fmt.Errorf("%w %q: %w", ErrFailedToWriteFile, path, err)
+	}
 	return nil
 }

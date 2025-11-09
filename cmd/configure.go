@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"log/slog"
 
@@ -35,10 +34,13 @@ func configure(configurer config.Configurer) error {
 		log.Fatalf("Failed to process config: %v", err)
 	}
 
-	// TODO remove debug print
-	fmt.Printf("%+v\n", envVars)
+	outputPath, err := configurer.WriteConfig(envVars)
+	if err != nil {
+		log.Fatalf("Failed to write config: %v", err)
+	}
 
-	// Now you have all environment variables with values
-	slog.Info("Configuration finished successfully", "sectionsProcessed", len(envVars.Sections))
+	slog.Info("Configuration finished successfully",
+		"sectionsProcessed", len(envVars.Sections),
+		"outputFile", outputPath)
 	return nil
 }

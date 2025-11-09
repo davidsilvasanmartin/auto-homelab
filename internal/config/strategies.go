@@ -17,7 +17,7 @@ import (
 
 // AcquireStrategy defines the interface for acquiring environment variable values
 type AcquireStrategy interface {
-	Acquire(varName string, defaultSpec *string) (*string, error)
+	Acquire(varName string, defaultSpec *string) (string, error)
 }
 
 var (
@@ -35,16 +35,16 @@ func NewConstantStrategy() *ConstantStrategy {
 	return &ConstantStrategy{prompter: NewConsolePrompter()}
 }
 
-func (s *ConstantStrategy) Acquire(varName string, defaultSpec *string) (*string, error) {
+func (s *ConstantStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// We don't care about previous values of varName here (the value read from .env),
 	// we will override it
 	if defaultSpec == nil {
-		return nil, fmt.Errorf("%w: %q", ErrConstantVarHasNoDefault, varName)
+		return "", fmt.Errorf("%w: %q", ErrConstantVarHasNoDefault, varName)
 	}
 	if err := s.prompter.Info(fmt.Sprintf("Defaulting to: %s", *defaultSpec)); err != nil {
-		return nil, err
+		return "", err
 	}
-	return defaultSpec, nil
+	return *defaultSpec, nil
 }
 
 // GeneratedStrategy generates a random secret value
@@ -62,28 +62,28 @@ var charsetPools = map[string]string{
 	"ALPHA": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
 }
 
-func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (*string, error) {
+func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
-		return &val, nil
+		return val, nil
 	}
 
 	charsetName, length, err := parseGeneratedSpec(*defaultSpec)
 	if err != nil {
-		return nil, fmt.Errorf("%w %q: %w", ErrCantParseDefaultSpec, varName, err)
+		return "", fmt.Errorf("%w %q: %w", ErrCantParseDefaultSpec, varName, err)
 	}
 
 	// Generate the secret
 	pool := charsetPools[charsetName]
 	generated, err := generateSecret(pool, length)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrCantGenerateSecret, err)
+		return "", fmt.Errorf("%w: %w", ErrCantGenerateSecret, err)
 	}
 
 	if err := s.prompter.Info(fmt.Sprintf("Generated a secret value of length %d for %s.", length, varName)); err != nil {
-		return nil, err
+		return "", err
 	}
-	return &generated, nil
+	return generated, nil
 }
 
 func parseGeneratedSpec(spec string) (string, int, error) {
@@ -133,22 +133,22 @@ func NewIPStrategy() *IPStrategy {
 	return &IPStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv()}
 }
 
-func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (*string, error) {
+func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
-		return &val, nil
+		return val, nil
 	}
 
 	for {
 		input, err := s.prompter.Prompt(fmt.Sprintf("Enter value for %s (IP): ", varName))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		input = strings.TrimSpace(input)
 		if input == "" {
 			if err := s.prompter.Info("IP address cannot be empty. Please try again."); err != nil {
-				return nil, err
+				return "", err
 			}
 			continue
 		}
@@ -156,12 +156,12 @@ func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (*string, erro
 		// Validate IP address
 		if net.ParseIP(input) == nil {
 			if err := s.prompter.Info("Invalid IP address. Please enter a valid IPv4 or IPv6 address."); err != nil {
-				return nil, err
+				return "", err
 			}
 			continue
 		}
 
-		return &input, nil
+		return input, nil
 	}
 }
 
@@ -175,27 +175,27 @@ func NewStringStrategy() *StringStrategy {
 	return &StringStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv()}
 }
 
-func (s *StringStrategy) Acquire(varName string, defaultSpec *string) (*string, error) {
+func (s *StringStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
-		return &val, nil
+		return val, nil
 	}
 
 	for {
 		input, err := s.prompter.Prompt(fmt.Sprintf("Enter value for %s (STRING): ", varName))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		input = strings.TrimSpace(input)
 		if input == "" {
 			if err := s.prompter.Info("Value cannot be empty. Please enter a non-empty string."); err != nil {
-				return nil, err
+				return "", err
 			}
 			continue
 		}
 
-		return &input, nil
+		return input, nil
 	}
 }
 
@@ -210,22 +210,22 @@ func NewPathStrategy() *PathStrategy {
 	return &PathStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv(), files: system.NewDefaultFilesHandler()}
 }
 
-func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (*string, error) {
+func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
-		return &val, nil
+		return val, nil
 	}
 
 	for {
 		input, err := s.prompter.Prompt(fmt.Sprintf("Enter value for %s (PATH): ", varName))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		input = strings.TrimSpace(input)
 		if input == "" {
 			if err := s.prompter.Info("Path cannot be empty. Please enter a directory path."); err != nil {
-				return nil, err
+				return "", err
 			}
 			continue
 		}
@@ -233,7 +233,7 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (*string, er
 		// Expand home directory
 		if strings.HasPrefix(input, "~") {
 			if err := s.prompter.Info("Homedir ('~') expansion is not supported. Please enter a valid directory path."); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 
@@ -241,7 +241,7 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (*string, er
 		absPath, err := filepath.Abs(input)
 		if err != nil {
 			if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
-				return nil, err
+				return "", err
 			}
 			continue
 		}
@@ -254,15 +254,15 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (*string, er
 				if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
 					// The error right here means the prompter could not show the info (this should never happen), so
 					// we end the execution of the program in this case
-					return nil, err
+					return "", err
 				}
 				continue
 			}
 		}
 
 		if err := s.prompter.Info(fmt.Sprintf("Created directory: %s", absPath)); err != nil {
-			return nil, err
+			return "", err
 		}
-		return &absPath, nil
+		return absPath, nil
 	}
 }

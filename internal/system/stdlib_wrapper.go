@@ -26,6 +26,8 @@ type stdlib interface {
 	RemoveAll(path string) error
 	// Sleep wraps time.Sleep
 	Sleep(d time.Duration)
+	// WriteFile wraps os.WriteFile
+	WriteFile(name string, data []byte, perm os.FileMode) error
 }
 
 // goStdlib implements stdlib by using the real go's std
@@ -63,3 +65,7 @@ func (*goStdlib) MkdirAll(path string, perm os.FileMode) error { return os.Mkdir
 func (*goStdlib) RemoveAll(path string) error { return os.RemoveAll(path) }
 
 func (*goStdlib) Sleep(d time.Duration) { time.Sleep(d) }
+
+func (*goStdlib) WriteFile(name string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(name, data, perm)
+}

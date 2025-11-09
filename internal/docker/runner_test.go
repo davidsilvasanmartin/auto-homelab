@@ -33,7 +33,6 @@ func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCo
 	}
 	return nil
 }
-
 func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
 	if m.execShellCommand != nil {
 		return m.execShellCommand(cmd)
@@ -48,25 +47,23 @@ type mockFiles struct {
 func (m *mockFiles) CreateDirIfNotExists(path string) error {
 	return nil
 }
-
 func (m *mockFiles) RequireFilesInWd(filenames ...string) error {
 	if m.requireFilesInWd != nil {
 		return m.requireFilesInWd(filenames...)
 	}
 	return nil
 }
-
 func (m *mockFiles) RequireDir(path string) error {
 	return nil
 }
-
 func (m *mockFiles) EmptyDir(path string) error {
 	return nil
 }
-
 func (m *mockFiles) CopyDir(srcPath string, dstPath string) error {
 	return nil
 }
+func (m *mockFiles) Getwd() (dir string, err error)           { return "", nil }
+func (m *mockFiles) WriteFile(path string, data []byte) error { return nil }
 
 type mockTime struct{}
 

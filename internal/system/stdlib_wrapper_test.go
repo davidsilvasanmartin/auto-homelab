@@ -42,6 +42,7 @@ type mockStdlib struct {
 	mkdirAll     func(path string, mode os.FileMode) error
 	removeAll    func(path string) error
 	sleep        func(d time.Duration)
+	writeFile    func(name string, data []byte, perm os.FileMode) error
 }
 
 func (m *mockStdlib) Getwd() (string, error) {
@@ -90,4 +91,11 @@ func (m *mockStdlib) Sleep(d time.Duration) {
 	if m.sleep != nil {
 		m.sleep(d)
 	}
+}
+
+func (m *mockStdlib) WriteFile(name string, data []byte, perm os.FileMode) error {
+	if m.writeFile != nil {
+		return m.writeFile(name, data, perm)
+	}
+	return nil
 }

@@ -26,9 +26,8 @@ type ConfigRoot struct {
 // EnvVar represents a single environment variable with its metadata
 type EnvVar struct {
 	Name        string
-	Type        string
 	Description string
-	Value       *string
+	Value       string
 }
 
 // EnvVarSection represents a logical grouping of environment variables
