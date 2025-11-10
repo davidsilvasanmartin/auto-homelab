@@ -8,7 +8,7 @@ import (
 
 type Env interface {
 	// GetEnv gets an environment variable and returns a bool to indicate whether it exists
-	GetEnv(varName string) (string, bool)
+	GetEnv(varName string) (value string, exists bool)
 	// GetRequiredEnv returns (value, true) if an environment variable with name varName exists,
 	// and ("", false) if it does not exist
 	GetRequiredEnv(varName string) (string, error)
