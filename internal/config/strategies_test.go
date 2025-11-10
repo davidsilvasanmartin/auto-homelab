@@ -764,6 +764,202 @@ func TestIPStrategy_Acquire_IgnoresDefaultSpec(t *testing.T) {
 	}
 }
 
+func TestStringStrategy_Acquire_AlreadySetInEnv(t *testing.T) {
+	existingValue := "val"
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{},
+		env: &mockEnv{
+			getEnvFunc: func(varName string) (string, bool) {
+				return existingValue, true
+			},
+		},
+	}
+
+	result, err := strategy.Acquire("VAR_NAME", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != existingValue {
+		t.Errorf("expected result %q, got %q", existingValue, result)
+	}
+}
+
+func TestStringStrategy_Acquire_PrompterError(t *testing.T) {
+	expectedError := errors.New("prompter read failed")
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return "", expectedError
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("VAR_NAME", nil)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedError) {
+		t.Errorf("expected error to be %v, got: %v", expectedError, err)
+	}
+}
+
+func TestStringStrategy_Acquire_EmptyInput_RetriesUntilValid(t *testing.T) {
+	callCount := 0
+	var capturedInfoMessages []string
+	validValue := "val"
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				callCount++
+				if callCount == 1 {
+					return "", nil
+				}
+				if callCount == 2 {
+					return "  ", nil
+				}
+				return validValue, nil
+			},
+			infoFunc: func(message string) error {
+				capturedInfoMessages = append(capturedInfoMessages, message)
+				return nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("VAR_NAME", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != validValue {
+		t.Errorf("expected result %q, got %q", validValue, result)
+	}
+	if callCount != 3 {
+		t.Errorf("expected 3 prompt calls, got %d", callCount)
+	}
+	expectedMessageWhenValueIsEmpty := "Value cannot be empty"
+	emptyMessages := 0
+	for _, msg := range capturedInfoMessages {
+		if strings.Contains(msg, expectedMessageWhenValueIsEmpty) {
+			emptyMessages++
+		}
+	}
+	if emptyMessages != 2 {
+		t.Errorf("expected 2 empty value messages, got %d", emptyMessages)
+	}
+}
+
+func TestStringStrategy_Acquire_InfoErrorOnEmptyInput(t *testing.T) {
+	expectedError := errors.New("info write failed")
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return "", nil
+			},
+			infoFunc: func(message string) error {
+				return expectedError
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("VAR_NAME", nil)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedError) {
+		t.Errorf("expected error to be %v, got: %v", expectedError, err)
+	}
+}
+
+func TestStringStrategy_Acquire_Success(t *testing.T) {
+	validValue := "val"
+	var ocapturedPrompt string
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				ocapturedPrompt = message
+				return validValue, nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("VAR_NAME", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != validValue {
+		t.Errorf("expected result to be %v, got %v", validValue, result)
+	}
+	expectedPrompt := "Enter value for VAR_NAME (STRING): "
+	if ocapturedPrompt != expectedPrompt {
+		t.Errorf("expected prompt to be %v, got %v", expectedPrompt, ocapturedPrompt)
+	}
+}
+
+func TestStringStrategy_Acquire_InputIsTrimmed(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{name: "spaces", in: "    a     ", out: "a"},
+		{name: "tabs and newline", in: "\t\n a \t\n", out: "a"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strategy := &StringStrategy{
+				prompter: &mockPrompter{
+					promptFunc: func(message string) (string, error) {
+						return tt.in, nil
+					},
+				},
+				env: &mockEnv{},
+			}
+
+			result, err := strategy.Acquire("VAR_NAME", nil)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if result != tt.out {
+				t.Errorf("expected result to be %v, got %v", tt.out, result)
+			}
+		})
+	}
+
+}
+
+func TestStringStrategy_Acquire_IgnoresDefaultSpec(t *testing.T) {
+	defaultSpec := "default"
+	promptedValue := "val"
+	strategy := &StringStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return promptedValue, nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("VAR_NAME", &defaultSpec)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != promptedValue {
+		t.Errorf("expected result %q (not default), got %q", promptedValue, result)
+	}
+}
+
 func TestPathStrategy_Acquire_AlreadySetInEnv(t *testing.T) {
 	existingPath := "/home/user/data"
 	strategy := &PathStrategy{
@@ -1130,7 +1326,7 @@ func TestPathStrategy_Acquire_InfoErrorOnDirectoryCreated(t *testing.T) {
 				return "/valid/path", nil
 			},
 			infoFunc: func(message string) error {
-				if strings.Contains(message, "Directory already exists") {
+				if strings.Contains(message, "Directory exists") {
 					return expectedErr
 				}
 				return nil
@@ -1201,7 +1397,7 @@ func TestPathStrategy_Acquire_Success_ExistingDirectory(t *testing.T) {
 	if capturedPrompt != expectedPrompt {
 		t.Errorf("expected prompt %q, got %q", expectedPrompt, capturedPrompt)
 	}
-	expectedInfo := "Directory already exists, nothing to do: " + absPath
+	expectedInfo := "Directory exists: " + absPath
 	if capturedInfoMessage != expectedInfo {
 		t.Errorf("expected info %q, got %q", expectedInfo, capturedInfoMessage)
 	}
@@ -1220,6 +1416,7 @@ func TestPathStrategy_Acquire_Success_CreatesNonExistingDirectory(t *testing.T) 
 				return inputPath, nil
 			},
 			infoFunc: func(message string) error {
+				// We will keep the last one
 				capturedInfoMessage = message
 				return nil
 			},
@@ -1290,44 +1487,5 @@ func TestPathStrategy_Acquire_IgnoresDefaultSpec(t *testing.T) {
 	}
 	if result != promptedValue {
 		t.Errorf("expected result %q (not default), got %q", promptedValue, result)
-	}
-}
-
-func TestPathStrategy_Acquire_ShowsCreatedDirectoryMessage(t *testing.T) {
-	inputPath := "/new/directory"
-	var capturedInfoMessages []string
-	strategy := &PathStrategy{
-		prompter: &mockPrompter{
-			promptFunc: func(message string) (string, error) {
-				return inputPath, nil
-			},
-			infoFunc: func(message string) error {
-				capturedInfoMessages = append(capturedInfoMessages, message)
-				return nil
-			},
-		},
-		env: &mockEnv{},
-		files: &mockFiles{
-			requireDir: func(path string) error {
-				return errors.New("does not exist")
-			},
-			createDirIfNotExists: func(path string) error {
-				return nil
-			},
-			getAbsPath: func(path string) (string, error) {
-				return path, nil
-			},
-		},
-	}
-
-	_, err := strategy.Acquire("PATH_VAR", nil)
-
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	expectedMessage := "Created directory: " + inputPath
-	lastMessage := capturedInfoMessages[len(capturedInfoMessages)-1]
-	if lastMessage != expectedMessage {
-		t.Errorf("expected last message %q to equal %q", lastMessage, expectedMessage)
 	}
 }

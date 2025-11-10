@@ -255,7 +255,7 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 				return "", err
 			}
 		} else {
-			if err := s.prompter.Info(fmt.Sprintf("Directory already exists, nothing to do: %s", absPath)); err != nil {
+			if err := s.prompter.Info(fmt.Sprintf("Directory exists: %s", absPath)); err != nil {
 				return "", err
 			}
 		}
