@@ -71,7 +71,6 @@ func (d *DirectoryLocalBackup) Run() error {
 		return err
 	}
 
-	// Run pre-command if provided
 	if d.preCommand != "" {
 		slog.Info("Running pre-command", "preCommand", d.preCommand)
 		cmd := d.commands.ExecShellCommand(d.preCommand)

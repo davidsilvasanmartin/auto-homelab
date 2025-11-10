@@ -219,6 +219,8 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 		input = strings.TrimSpace(input)
 		if input == "" {
 			if err := s.prompter.Info("Path cannot be empty. Please enter a directory path."); err != nil {
+				// The error right here means the prompter could not show the info (this should never happen), so
+				// we just stop the process and return the error in this case
 				return "", err
 			}
 			continue
@@ -228,6 +230,7 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 			if err := s.prompter.Info("Homedir ('~') expansion is not supported. Please enter a valid directory path."); err != nil {
 				return "", err
 			}
+			continue
 		}
 
 		absPath, err := s.files.GetAbsPath(input)
@@ -244,17 +247,19 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 		if err := s.files.RequireDir(absPath); err != nil {
 			if err := s.files.CreateDirIfNotExists(absPath); err != nil {
 				if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
-					// The error right here means the prompter could not show the info (this should never happen), so
-					// we end the execution of the program in this case
 					return "", err
 				}
 				continue
 			}
+			if err := s.prompter.Info(fmt.Sprintf("Created directory: %s", absPath)); err != nil {
+				return "", err
+			}
+		} else {
+			if err := s.prompter.Info(fmt.Sprintf("Directory already exists, nothing to do: %s", absPath)); err != nil {
+				return "", err
+			}
 		}
 
-		if err := s.prompter.Info(fmt.Sprintf("Created directory: %s", absPath)); err != nil {
-			return "", err
-		}
 		return absPath, nil
 	}
 }
