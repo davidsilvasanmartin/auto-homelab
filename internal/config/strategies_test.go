@@ -178,7 +178,7 @@ func TestGeneratedStrategy_Acquire_AlreadySetInEnv(t *testing.T) {
 	}
 }
 
-func TestGeneratedStrategy_Acquire_PromptsCorrectMessage(t *testing.T) {
+func TestGeneratedStrategy_Acquire_ShowsCorrectSuccessMessage(t *testing.T) {
 	var capturedMessage string
 	strategy := &GeneratedStrategy{
 		prompter: &mockPrompter{
@@ -416,5 +416,345 @@ func TestGeneratedStrategy_Acquire_GeneratesUniqueValues(t *testing.T) {
 			t.Errorf("generated duplicate secret: %q", result)
 		}
 		results[result] = true
+	}
+}
+
+func TestIPStrategy_Acquire_AlreadySetInEnv(t *testing.T) {
+	existingIP := "192.168.1.100"
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{},
+		env: &mockEnv{
+			getEnvFunc: func(varName string) (string, bool) {
+				return existingIP, true
+			},
+		},
+	}
+
+	result, err := strategy.Acquire("SERVER_IP", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != existingIP {
+		t.Errorf("expected result %q, got %q", existingIP, result)
+	}
+}
+
+func TestIPStrategy_Acquire_PromptsCorrectMessage(t *testing.T) {
+	validIP := "192.168.1.100"
+	var capturedPrompt string
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				capturedPrompt = message
+				return validIP, nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("TEST_IP", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	expectedPrompt := "Enter value for TEST_IP (IP): "
+	if capturedPrompt != expectedPrompt {
+		t.Errorf("expected prompt %q, got %q", expectedPrompt, capturedPrompt)
+	}
+}
+
+func TestIPStrategy_Acquire_ValidIpv4(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+	}{
+		{"public", "1.2.3.4"},
+		{"loopback", "127.0.0.1"},
+		{"all_zeros", "0.0.0.0"},
+		{"broadcast", "255.255.255.255"},
+		{"private_10", "10.0.0.1"},
+		{"private_172", "172.16.0.1"},
+		{"private_192", "192.168.0.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strategy := &IPStrategy{
+				prompter: &mockPrompter{
+					promptFunc: func(message string) (string, error) {
+						return tt.ip, nil
+					},
+				},
+				env: &mockEnv{},
+			}
+
+			result, err := strategy.Acquire("IP_VAR", nil)
+
+			if err != nil {
+				t.Fatalf("expected no error for %s, got %v", tt.ip, err)
+			}
+			if result != tt.ip {
+				t.Errorf("expected result %q, got %q", tt.ip, result)
+			}
+		})
+	}
+}
+
+func TestIPStrategy_Acquire_ValidIPv6(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+	}{
+		{"full_ipv6", "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
+		{"compressed_ipv6", "2001:db8:85a3::8a2e:370:7334"},
+		{"loopback_ipv6", "::1"},
+		{"ipv6_all_zeros", "::"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strategy := &IPStrategy{
+				prompter: &mockPrompter{
+					promptFunc: func(message string) (string, error) {
+						return tt.ip, nil
+					},
+				},
+				env: &mockEnv{},
+			}
+
+			result, err := strategy.Acquire("IP_VAR", nil)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if result != tt.ip {
+				t.Errorf("expected result %q, got %q", tt.ip, result)
+			}
+		})
+	}
+}
+
+func TestIPStrategy_Acquire_TrimsWhitespace(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"leading_space", " 192.168.1.1", "192.168.1.1"},
+		{"trailing_space", "192.168.1.1 ", "192.168.1.1"},
+		{"both_spaces", "  192.168.1.1  ", "192.168.1.1"},
+		{"tabs", "\t192.168.1.1\t", "192.168.1.1"},
+		{"newlines", "\n192.168.1.1\n", "192.168.1.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strategy := &IPStrategy{
+				prompter: &mockPrompter{
+					promptFunc: func(message string) (string, error) {
+						return tt.input, nil
+					},
+				},
+				env: &mockEnv{},
+			}
+
+			result, err := strategy.Acquire("IP_VAR", nil)
+
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("expected result %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestIPStrategy_Acquire_PrompterError(t *testing.T) {
+	expectedErr := errors.New("prompter read failed")
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return "", expectedErr
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("IP_VAR", nil)
+
+	if err == nil {
+		t.Fatal("expected error when prompter fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestIPStrategy_Acquire_EmptyInput_RetriesUntilValid(t *testing.T) {
+	callCount := 0
+	var capturedInfoMessages []string
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				callCount++
+				if callCount == 1 {
+					return "", nil
+				}
+				if callCount == 2 {
+					return "  ", nil
+				}
+				return "192.168.1.1", nil
+			},
+			infoFunc: func(message string) error {
+				capturedInfoMessages = append(capturedInfoMessages, message)
+				return nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("IP_VAR", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != "192.168.1.1" {
+		t.Errorf("expected result %q, got %q", "192.168.1.1", result)
+	}
+	if callCount != 3 {
+		t.Errorf("expected 3 prompt calls, got %d", callCount)
+	}
+	if len(capturedInfoMessages) != 2 {
+		t.Fatalf("expected 2 info messages, got %d", len(capturedInfoMessages))
+	}
+	expectedMessage := "IP address cannot be empty. Please try again."
+	for i, msg := range capturedInfoMessages {
+		if msg != expectedMessage {
+			t.Errorf("info message %d: expected %q, got %q", i, expectedMessage, msg)
+		}
+	}
+}
+
+func TestIPStrategy_Acquire_InfoErrorOnEmptyInput(t *testing.T) {
+	expectedErr := errors.New("info write failed")
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return "", nil
+			},
+			infoFunc: func(message string) error {
+				return expectedErr
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("IP_VAR", nil)
+
+	if err == nil {
+		t.Fatal("expected error when info fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestIPStrategy_Acquire_InvalidIP_RetriesUntilValid(t *testing.T) {
+	callCount := 0
+	var capturedInfoMessages []string
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				callCount++
+				switch callCount {
+				case 1:
+					return "not-an-ip", nil
+				case 2:
+					return "192.168.1.256", nil
+				case 3:
+					return "192.168.1", nil
+				case 4:
+					return "192.168.1.1:8080", nil
+				case 5:
+					return "http://192.168.1.1", nil
+				default:
+					return "10.0.0.1", nil
+				}
+			},
+			infoFunc: func(message string) error {
+				capturedInfoMessages = append(capturedInfoMessages, message)
+				return nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("IP_VAR", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != "10.0.0.1" {
+		t.Errorf("expected result %q, got %q", "10.0.0.1", result)
+	}
+	if callCount != 6 {
+		t.Errorf("expected 6 prompt calls, got %d", callCount)
+	}
+	if len(capturedInfoMessages) != 5 {
+		t.Fatalf("expected 5 info messages, got %d", len(capturedInfoMessages))
+	}
+	expectedMessage := "Invalid IP address. Please enter a valid IPv4 or IPv6 address."
+	for i, msg := range capturedInfoMessages {
+		if msg != expectedMessage {
+			t.Errorf("info message %d: expected %q, got %q", i, expectedMessage, msg)
+		}
+	}
+}
+
+func TestIPStrategy_Acquire_InfoErrorOnInvalidIP(t *testing.T) {
+	expectedErr := errors.New("info write failed")
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return "invalid-ip", nil
+			},
+			infoFunc: func(message string) error {
+				return expectedErr
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	_, err := strategy.Acquire("IP_VAR", nil)
+
+	if err == nil {
+		t.Fatal("expected error when info fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+}
+
+func TestIPStrategy_Acquire_IgnoresDefaultSpec(t *testing.T) {
+	defaultSpec := "10.0.0.1"
+	promptedValue := "192.168.1.1"
+	strategy := &IPStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				return promptedValue, nil
+			},
+		},
+		env: &mockEnv{},
+	}
+
+	result, err := strategy.Acquire("IP_VAR", &defaultSpec)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != promptedValue {
+		t.Errorf("expected result %q, got %q", promptedValue, result)
 	}
 }
