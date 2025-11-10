@@ -3,6 +3,7 @@ package system
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 )
 
@@ -28,6 +29,8 @@ type stdlib interface {
 	Sleep(d time.Duration)
 	// WriteFile wraps os.WriteFile
 	WriteFile(name string, data []byte, perm os.FileMode) error
+	// FilepathAbs wraps filepath.Abs
+	FilepathAbs(path string) (string, error)
 }
 
 // goStdlib implements stdlib by using the real go's std
@@ -68,4 +71,8 @@ func (*goStdlib) Sleep(d time.Duration) { time.Sleep(d) }
 
 func (*goStdlib) WriteFile(name string, data []byte, perm os.FileMode) error {
 	return os.WriteFile(name, data, perm)
+}
+
+func (*goStdlib) FilepathAbs(path string) (string, error) {
+	return filepath.Abs(path)
 }

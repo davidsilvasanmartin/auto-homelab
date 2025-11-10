@@ -64,6 +64,7 @@ func (m *mockFiles) CopyDir(srcPath string, dstPath string) error {
 }
 func (m *mockFiles) Getwd() (dir string, err error)           { return "", nil }
 func (m *mockFiles) WriteFile(path string, data []byte) error { return nil }
+func (m *mockFiles) GetAbsPath(path string) (string, error)   { return "", nil }
 
 type mockTime struct{}
 

@@ -658,3 +658,56 @@ func TestDefaultFilesHandler_WriteFile_Failure(t *testing.T) {
 		t.Errorf("expected error message to contain path %q, got: %q", path, err.Error())
 	}
 }
+
+func TestDefaultFilesHandler_GetAbsPath_Success(t *testing.T) {
+	var capturedPath string
+	inputPath := "./file.txt"
+	absPath := "/User/root/file.txt"
+	files := &DefaultFilesHandler{
+		stdlib: &mockStdlib{
+			filepathAbs: func(path string) (string, error) {
+				capturedPath = path
+				return absPath, nil
+			},
+		},
+	}
+
+	outputPath, err := files.GetAbsPath(inputPath)
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedPath != inputPath {
+		t.Errorf("expected path to be %q, got %q", inputPath, capturedPath)
+	}
+	if outputPath != absPath {
+		t.Errorf("expected abs path to be %v, got %v", absPath, outputPath)
+	}
+}
+
+func TestDefaultFilesHandler_GetAbsPath_Failure(t *testing.T) {
+	expectedErr := errors.New("insufficient permissions")
+	inputPath := "./file.txt"
+	files := &DefaultFilesHandler{
+		stdlib: &mockStdlib{
+			filepathAbs: func(path string) (string, error) {
+				return "", expectedErr
+			},
+		},
+	}
+
+	_, err := files.GetAbsPath(inputPath)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrFailedToGetAbsPath) {
+		t.Errorf("expected ErrFailedToGetAbsPath, got: %v", err)
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+	if !strings.Contains(err.Error(), inputPath) {
+		t.Errorf("expected error message to contain input path %q, got: %q", inputPath, err.Error())
+	}
+}

@@ -35,6 +35,7 @@ func (m *mockFilesHandler) CopyDir(srcPath string, dstPath string) error {
 }
 func (m *mockFilesHandler) Getwd() (dir string, err error)           { return "", nil }
 func (m *mockFilesHandler) WriteFile(path string, data []byte) error { return nil }
+func (m *mockFilesHandler) GetAbsPath(path string) (string, error)   { return "", nil }
 
 type mockCommands struct {
 	execShellCommand func(cmd string) system.RunnableCommand

@@ -24,6 +24,8 @@ type FilesHandler interface {
 	Getwd() (dir string, err error)
 	// WriteFile writes the content to a file
 	WriteFile(path string, data []byte) error
+	// GetAbsPath gets the absolute path from a relative (or absolute) path and cleans it
+	GetAbsPath(path string) (string, error)
 }
 
 const (
@@ -41,6 +43,7 @@ var (
 	ErrFailedToCopyDir      = errors.New("failed to copy directory")
 	ErrFailedToCheckPath    = errors.New("failed to check file or directory at path")
 	ErrFailedToWriteFile    = errors.New("failed to write file")
+	ErrFailedToGetAbsPath   = errors.New("failed to get abs path")
 )
 
 type DefaultFilesHandler struct {
@@ -156,4 +159,12 @@ func (d *DefaultFilesHandler) WriteFile(path string, data []byte) error {
 		return fmt.Errorf("%w %q: %w", ErrFailedToWriteFile, path, err)
 	}
 	return nil
+}
+
+func (d *DefaultFilesHandler) GetAbsPath(path string) (string, error) {
+	absPath, err := d.stdlib.FilepathAbs(path)
+	if err != nil {
+		return "", fmt.Errorf("%w %q: %w", ErrFailedToGetAbsPath, path, err)
+	}
+	return absPath, nil
 }

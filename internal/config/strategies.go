@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -63,7 +62,6 @@ var charsetPools = map[string]string{
 }
 
 func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
-	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -73,7 +71,6 @@ func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string
 		return "", fmt.Errorf("%w %q: %w", ErrCantParseDefaultSpec, varName, err)
 	}
 
-	// Generate the secret
 	pool := charsetPools[charsetName]
 	generated, err := generateSecret(pool, length)
 	if err != nil {
@@ -134,7 +131,6 @@ func NewIPStrategy() *IPStrategy {
 }
 
 func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
-	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -153,7 +149,6 @@ func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (string, error
 			continue
 		}
 
-		// Validate IP address
 		if net.ParseIP(input) == nil {
 			if err := s.prompter.Info("Invalid IP address. Please enter a valid IPv4 or IPv6 address."); err != nil {
 				return "", err
@@ -211,7 +206,6 @@ func NewPathStrategy() *PathStrategy {
 }
 
 func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
-	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -230,15 +224,13 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 			continue
 		}
 
-		// Expand home directory
 		if strings.HasPrefix(input, "~") {
 			if err := s.prompter.Info("Homedir ('~') expansion is not supported. Please enter a valid directory path."); err != nil {
 				return "", err
 			}
 		}
 
-		// Clean the path
-		absPath, err := filepath.Abs(input)
+		absPath, err := s.files.GetAbsPath(input)
 		if err != nil {
 			if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
 				return "", err
