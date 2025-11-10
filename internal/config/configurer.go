@@ -105,7 +105,8 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 			envVar := EnvVar{
 				Name:        varName,
 				Description: configVar.Description,
-				Value:       value,
+				// TODO TRIM VALUE, and test
+				Value: value,
 			}
 			section.Vars = append(section.Vars, envVar)
 		}
@@ -116,7 +117,7 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 	return root, nil
 }
 
-// TODO REVIEW AND TEST BELOW
+// TODO TEST BELOW
 func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) {
 	builder := newDotenvBuilder(c.textFormatter)
 	for _, section := range envVarRoot.Sections {
@@ -124,11 +125,11 @@ func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) 
 	}
 	content := builder.build()
 
-	// Generate timestamped filename
 	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf(".env.generated.%d", timestamp)
+	// Start name with .env so the file is shown next to other .env files; end file with .env so that
+	// we have syntax highlighting when opening it
+	filename := fmt.Sprintf(".env.generated.%d.env", timestamp)
 
-	// Get current working directory to save the file in project root
 	wd, err := c.files.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get working directory: %w", err)
@@ -136,7 +137,6 @@ func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) 
 
 	outputPath := filepath.Join(wd, filename)
 
-	// Write the file
 	if err := c.files.WriteFile(outputPath, []byte(content)); err != nil {
 		return "", fmt.Errorf("%w %q: %w", ErrConfigFileWrite, outputPath, err)
 	}
@@ -161,13 +161,11 @@ func newDotenvBuilder(formatter format.TextFormatter) *dotenvBuilder {
 
 // addVar adds a single variable to the .env file
 func (b *dotenvBuilder) addVar(envVar EnvVar) error {
-	// Wrap and add description lines as comments
-	wrappedLines := b.textFormatter.WrapLines(envVar.Description, 120)
+	wrappedLines := b.textFormatter.WrapLines(envVar.Description, 118)
 	for _, line := range wrappedLines {
 		b.lines = append(b.lines, fmt.Sprintf("# %s", line))
 	}
 
-	// Add the key-value pair
 	formatted, err := b.textFormatter.FormatDotenvKeyValue(envVar.Name, envVar.Value)
 	if err != nil {
 		return fmt.Errorf("failed to format variable %q: %w", envVar.Name, err)
@@ -180,23 +178,20 @@ func (b *dotenvBuilder) addVar(envVar EnvVar) error {
 
 // addSection adds a section to the .env file
 func (b *dotenvBuilder) addSection(section EnvVarSection) error {
-	// Add section header
 	b.lines = append(b.lines, strings.Repeat("#", 120))
 	b.lines = append(b.lines, fmt.Sprintf("# %s", section.Name))
-	wrappedLines := b.textFormatter.WrapLines(section.Description, 120)
+	wrappedLines := b.textFormatter.WrapLines(section.Description, 118)
 	for _, line := range wrappedLines {
 		b.lines = append(b.lines, fmt.Sprintf("# %s", line))
 	}
 	b.lines = append(b.lines, strings.Repeat("#", 120))
 
-	// Add all variables in the section
 	for _, envVar := range section.Vars {
 		if err := b.addVar(envVar); err != nil {
 			return err
 		}
 	}
 
-	// Add blank line after section
 	b.lines = append(b.lines, "")
 
 	return nil
@@ -204,9 +199,7 @@ func (b *dotenvBuilder) addSection(section EnvVarSection) error {
 
 // build returns the final .env file content
 func (b *dotenvBuilder) build() string {
-	// Join all lines with newline
 	content := strings.Join(b.lines, "\n")
-	// Remove trailing whitespace and ensure file ends with single newline
 	content = strings.TrimRight(content, "\n")
 	return content + "\n"
 }
