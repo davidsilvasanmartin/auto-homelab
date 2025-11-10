@@ -61,7 +61,7 @@ func (d *DefaultTextFormatter) FormatDotenvKeyValue(key string, value string) (s
 	return fmt.Sprintf(`%s="%s"`, key, value), nil
 }
 
-// FormatForPOSIXShell Wraps a string in single quotes for POSIX shells, escaping any embedded single
+// QuoteForPOSIXShell Wraps a string in single quotes for POSIX shells, escaping any embedded single
 // quotes safely. This transforms p'q into 'p'"'"'q' which the shell interprets as a single literal string.
 func (d *DefaultTextFormatter) QuoteForPOSIXShell(text string) string {
 	return "'" + strings.ReplaceAll(text, "'", "'\"'\"'") + "'"

@@ -29,7 +29,6 @@ func NewDefaultEnv() *DefaultEnv {
 	}
 }
 
-// TODO TEST !
 func (d *DefaultEnv) GetEnv(varName string) (string, bool) {
 	return d.LookupEnv(varName)
 }

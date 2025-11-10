@@ -147,12 +147,10 @@ func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
 	return nil
 }
 
-// TODO test
 func (d *DefaultFilesHandler) Getwd() (dir string, err error) {
 	return d.stdlib.Getwd()
 }
 
-// TODO test
 func (d *DefaultFilesHandler) WriteFile(path string, data []byte) error {
 	if err := d.stdlib.WriteFile(path, data, defaultFilePerms); err != nil {
 		return fmt.Errorf("%w %q: %w", ErrFailedToWriteFile, path, err)

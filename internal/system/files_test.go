@@ -578,3 +578,83 @@ func TestDefaultFilesHandler_CopyDir_CommandError(t *testing.T) {
 		t.Errorf("expected error message to contain path %q, got %q", dstPath, err.Error())
 	}
 }
+
+func TestDefaultFilesHandler_Getwd(t *testing.T) {
+	wd := "/User/root"
+	files := &DefaultFilesHandler{
+		stdlib: &mockStdlib{
+			getwd: func() (string, error) {
+				return wd, nil
+			},
+		},
+	}
+
+	gotWd, err := files.Getwd()
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if gotWd != wd {
+		t.Errorf("expected getwd to return %q, got: %q", wd, gotWd)
+	}
+}
+
+func TestDefaultFilesHandler_WriteFile_Success(t *testing.T) {
+	var capturedPath string
+	var capturedData []byte
+	var capturedPerm os.FileMode
+	files := &DefaultFilesHandler{
+		stdlib: &mockStdlib{
+			writeFile: func(name string, data []byte, perm os.FileMode) error {
+				capturedPath = name
+				capturedData = data
+				capturedPerm = perm
+				return nil
+			},
+		},
+	}
+	path := "/User/root/file.txt"
+	data := []byte{'H', 'i'}
+
+	err := files.WriteFile(path, data)
+
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if capturedPath != path {
+		t.Errorf("expected path to be %q, got %q", path, capturedPath)
+	}
+	if diff := cmp.Diff(capturedData, data); diff != "" {
+		t.Errorf("data mismatch (-want +got):\n%s", diff)
+	}
+	if capturedPerm != defaultFilePerms {
+		t.Errorf("expected perms to be %v, got %v", defaultFilePerms, capturedPerm)
+	}
+}
+
+func TestDefaultFilesHandler_WriteFile_Failure(t *testing.T) {
+	expectedErr := errors.New("insufficient permissions")
+	files := &DefaultFilesHandler{
+		stdlib: &mockStdlib{
+			writeFile: func(name string, data []byte, perm os.FileMode) error {
+				return expectedErr
+			},
+		},
+	}
+	path := "/User/root/file.txt"
+
+	err := files.WriteFile(path, []byte{'Q'})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrFailedToWriteFile) {
+		t.Errorf("expected ErrFailedToWriteFile, got: %v", err)
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to be %v, got: %v", expectedErr, err)
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("expected error message to contain path %q, got: %q", path, err.Error())
+	}
+}
