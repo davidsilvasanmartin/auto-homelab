@@ -117,11 +117,13 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 	return root, nil
 }
 
-// TODO TEST BELOW
 func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) {
 	builder := newDotenvBuilder(c.textFormatter)
 	for _, section := range envVarRoot.Sections {
-		builder.addSection(section)
+		err := builder.addSection(section)
+		if err != nil {
+			return "", err
+		}
 	}
 	content := builder.build()
 
