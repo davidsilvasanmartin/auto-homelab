@@ -40,9 +40,7 @@ func (s *ConstantStrategy) Acquire(varName string, defaultSpec *string) (string,
 	if defaultSpec == nil {
 		return "", fmt.Errorf("%w: %q", ErrConstantVarHasNoDefault, varName)
 	}
-	if err := s.prompter.Info(fmt.Sprintf("Defaulting to: %s", *defaultSpec)); err != nil {
-		return "", err
-	}
+	s.prompter.Info(fmt.Sprintf("Defaulting to: %s", *defaultSpec))
 	return *defaultSpec, nil
 }
 
@@ -77,9 +75,7 @@ func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string
 		return "", fmt.Errorf("%w: %w", ErrCantGenerateSecret, err)
 	}
 
-	if err := s.prompter.Info(fmt.Sprintf("Generated a secret value of length %d for %s.", length, varName)); err != nil {
-		return "", err
-	}
+	s.prompter.Info(fmt.Sprintf("Generated a secret value of length %d for %s.", length, varName))
 	return generated, nil
 }
 
@@ -143,16 +139,12 @@ func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (string, error
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			if err := s.prompter.Info("IP address cannot be empty. Please try again."); err != nil {
-				return "", err
-			}
+			s.prompter.Info("IP address cannot be empty. Please try again.")
 			continue
 		}
 
 		if net.ParseIP(input) == nil {
-			if err := s.prompter.Info("Invalid IP address. Please enter a valid IPv4 or IPv6 address."); err != nil {
-				return "", err
-			}
+			s.prompter.Info("Invalid IP address. Please enter a valid IPv4 or IPv6 address.")
 			continue
 		}
 
@@ -184,9 +176,7 @@ func (s *StringStrategy) Acquire(varName string, defaultSpec *string) (string, e
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			if err := s.prompter.Info("Value cannot be empty. Please enter a non-empty string."); err != nil {
-				return "", err
-			}
+			s.prompter.Info("Value cannot be empty. Please enter a non-empty string.")
 			continue
 		}
 
@@ -218,26 +208,18 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 
 		input = strings.TrimSpace(input)
 		if input == "" {
-			if err := s.prompter.Info("Path cannot be empty. Please enter a directory path."); err != nil {
-				// The error right here means the prompter could not show the info (this should never happen), so
-				// we just stop the process and return the error in this case
-				return "", err
-			}
+			s.prompter.Info("Path cannot be empty. Please enter a directory path.")
 			continue
 		}
 
 		if strings.HasPrefix(input, "~") {
-			if err := s.prompter.Info("Homedir ('~') expansion is not supported. Please enter a valid directory path."); err != nil {
-				return "", err
-			}
+			s.prompter.Info("Homedir ('~') expansion is not supported. Please enter a valid directory path.")
 			continue
 		}
 
 		absPath, err := s.files.GetAbsPath(input)
 		if err != nil {
-			if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
-				return "", err
-			}
+			s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err))
 			continue
 		}
 
@@ -246,18 +228,12 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 		// with another directory
 		if err := s.files.RequireDir(absPath); err != nil {
 			if err := s.files.CreateDirIfNotExists(absPath); err != nil {
-				if err := s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err)); err != nil {
-					return "", err
-				}
+				s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err))
 				continue
 			}
-			if err := s.prompter.Info(fmt.Sprintf("Created directory: %s", absPath)); err != nil {
-				return "", err
-			}
+			s.prompter.Info(fmt.Sprintf("Created directory: %s", absPath))
 		} else {
-			if err := s.prompter.Info(fmt.Sprintf("Directory exists: %s", absPath)); err != nil {
-				return "", err
-			}
+			s.prompter.Info(fmt.Sprintf("Directory exists: %s", absPath))
 		}
 
 		return absPath, nil

@@ -6,18 +6,6 @@ import (
 	"testing"
 )
 
-// mockStrategy is a mock implementation of AcquireStrategy for testing
-type mockStrategy struct {
-	acquireFunc func(varName string, defaultSpec *string) (string, error)
-}
-
-func (m *mockStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
-	if m.acquireFunc != nil {
-		return m.acquireFunc(varName, defaultSpec)
-	}
-	return "mock-value", nil
-}
-
 func TestStrategyRegistry_Register_Success(t *testing.T) {
 	registry := &StrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),

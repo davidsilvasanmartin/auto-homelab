@@ -3,7 +3,7 @@ package config
 // mockPrompter is a mock implementation of Prompter for testing
 type mockPrompter struct {
 	promptFunc func(message string) (string, error)
-	infoFunc   func(message string) error
+	infoFunc   func(message string)
 }
 
 func (m *mockPrompter) Prompt(message string) (string, error) {
@@ -12,11 +12,10 @@ func (m *mockPrompter) Prompt(message string) (string, error) {
 	}
 	return "", nil
 }
-func (m *mockPrompter) Info(message string) error {
+func (m *mockPrompter) Info(message string) {
 	if m.infoFunc != nil {
-		return m.infoFunc(message)
+		m.infoFunc(message)
 	}
-	return nil
 }
 
 type mockEnv struct {
@@ -64,4 +63,40 @@ func (m *mockFiles) GetAbsPath(path string) (string, error) {
 		return m.getAbsPath(path)
 	}
 	return "", nil
+}
+
+type mockStrategyRegistry struct {
+	getFunc func(varType string) (AcquireStrategy, error)
+}
+
+func (m *mockStrategyRegistry) Get(varType string) (AcquireStrategy, error) {
+	if m.getFunc != nil {
+		return m.getFunc(varType)
+	}
+	return nil, nil
+}
+func (m *mockStrategyRegistry) Register(typeName string, strategy AcquireStrategy) {}
+
+// mockStrategy is a mock implementation of AcquireStrategy for testing
+type mockStrategy struct {
+	acquireFunc func(varName string, defaultSpec *string) (string, error)
+}
+
+func (m *mockStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
+	if m.acquireFunc != nil {
+		return m.acquireFunc(varName, defaultSpec)
+	}
+	return "mock-value", nil
+}
+
+type mockTextFormatter struct{}
+
+func (m *mockTextFormatter) WrapLines(text string, width uint) []string {
+	return []string{text}
+}
+func (m *mockTextFormatter) FormatDotenvKeyValue(key string, value string) (string, error) {
+	return key + "=" + value, nil
+}
+func (m *mockTextFormatter) QuoteForPOSIXShell(text string) string {
+	return text
 }

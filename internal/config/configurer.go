@@ -76,19 +76,13 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 			Vars:        make([]EnvVar, 0, len(configSection.Variables)),
 		}
 
-		if err := c.prompter.Info(fmt.Sprintf("\n\n>>>>>>>>>> Section: %s", section.Name)); err != nil {
-			return nil, err
-		}
-		if err := c.prompter.Info(section.Description); err != nil {
-			return nil, err
-		}
+		c.prompter.Info(fmt.Sprintf("\n\n>>>>>>>>>> Section: %s", section.Name))
+		c.prompter.Info(section.Description)
 
 		for _, configVar := range configSection.Variables {
 			varName := fmt.Sprintf("%s_%s", section.Name, configVar.Name)
 
-			if err := c.prompter.Info(fmt.Sprintf("\n> %s: %s", varName, configVar.Description)); err != nil {
-				return nil, err
-			}
+			c.prompter.Info(fmt.Sprintf("\n> %s: %s", varName, configVar.Description))
 
 			// Get the appropriate strategy
 			strategy, err := c.strategyRegistry.Get(configVar.Type)
