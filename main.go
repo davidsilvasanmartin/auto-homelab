@@ -6,9 +6,14 @@ import (
 	"os/exec"
 
 	"github.com/davidsilvasanmartin/auto-homelab/cmd"
+	"github.com/davidsilvasanmartin/auto-homelab/internal/dotenv"
 )
 
 func main() {
+	// Load .env file from the current working directory
+	// Variables are available for all Cobra commands
+	dotenv.LoadDotEnv()
+
 	if err := requireCommand("docker"); err != nil {
 		exitWithCommandMissingError("docker")
 	}
