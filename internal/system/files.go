@@ -14,7 +14,7 @@ type FilesHandler interface {
 	CreateDirIfNotExists(path string) error
 	// EnsureFilesInWD requires that the files exist in the current working directory, or errors if they don't
 	EnsureFilesInWD(filenames ...string) error
-	// EnsureDirExists requires that a directory exists
+	// EnsureDirExists requires that a directory exists, or throws an error if it doesn't
 	EnsureDirExists(path string) error
 	// EmptyDir empties a directory. The directory must exist
 	EmptyDir(path string) error
@@ -100,7 +100,7 @@ func (d *DefaultFilesHandler) EnsureFilesInWD(filenames ...string) error {
 	return nil
 }
 
-// RequireDir requires that a directory exists, or throws an error if it doesn't
+// EnsureDirExists requires that a directory exists, or throws an error if it doesn't
 func (d *DefaultFilesHandler) EnsureDirExists(path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, path)

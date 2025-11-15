@@ -1,5 +1,5 @@
 **QUESTION**:
-Regarding the test called `TestDefaultSystem_RequireDir_NotADir`: isn't this a great example of how returning interfaces from methods in Go is beneficial? The general mantra in Go is "accept interfaces, return structs". But from this example, it seems that returning structs make the code less testable. If `os.FileInfo` was a struct, I would not have been able to write this test, and I would have to have used a real `os.FileInfo` (which I guess would require me to create a real file on my system).
+Regarding the test called `TestDefaultSystem_EnsureDirExists_NotADir`: isn't this a great example of how returning interfaces from methods in Go is beneficial? The general mantra in Go is "accept interfaces, return structs". But from this example, it seems that returning structs make the code less testable. If `os.FileInfo` was a struct, I would not have been able to write this test, and I would have to have used a real `os.FileInfo` (which I guess would require me to create a real file on my system).
 
 What are your thoughts on this mantra? Why could it be beneficial to return structs instead of interfaces? Right now I don't see any positive points
 

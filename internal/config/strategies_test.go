@@ -855,7 +855,7 @@ func TestPathStrategy_Acquire_EmptyInput_RetriesUntilValid(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return nil
 			},
 			getAbsPath: func(path string) (string, error) {
@@ -907,7 +907,7 @@ func TestPathStrategy_Acquire_HomedirExpansionNotSupported(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return nil
 			},
 			getAbsPath: func(path string) (string, error) {
@@ -951,7 +951,7 @@ func TestPathStrategy_Acquire_RelativePathConvertsToAbsolute(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return nil
 			},
 			getAbsPath: func(path string) (string, error) {
@@ -991,7 +991,7 @@ func TestPathStrategy_Acquire_CreateDirError_RetriesUntilValid(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return errors.New("directory does not exist")
 			},
 			createDirIfNotExists: func(path string) error {
@@ -1095,7 +1095,7 @@ func TestPathStrategy_Acquire_Success_ExistingDirectory(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return nil
 			},
 			getAbsPath: func(path string) (string, error) {
@@ -1141,7 +1141,7 @@ func TestPathStrategy_Acquire_Success_CreatesNonExistingDirectory(t *testing.T) 
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return errors.New("directory does not exist")
 			},
 			createDirIfNotExists: func(path string) error {
@@ -1186,7 +1186,7 @@ func TestPathStrategy_Acquire_IgnoresDefaultSpec(t *testing.T) {
 		},
 		env: &mockEnv{},
 		files: &mockFiles{
-			requireDir: func(path string) error {
+			ensureDirExists: func(path string) error {
 				return nil
 			},
 			getAbsPath: func(path string) (string, error) {

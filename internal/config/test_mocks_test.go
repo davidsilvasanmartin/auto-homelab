@@ -33,7 +33,7 @@ func (m *mockEnv) GetRequiredEnv(varName string) (string, error) { return "", ni
 
 type mockFiles struct {
 	createDirIfNotExists func(path string) error
-	requireDir           func(path string) error
+	ensureDirExists      func(path string) error
 	getAbsPath           func(path string) (string, error)
 	getwd                func() (string, error)
 	writeFile            func(path string, data []byte) error
@@ -47,8 +47,8 @@ func (m *mockFiles) CreateDirIfNotExists(path string) error {
 }
 func (m *mockFiles) EnsureFilesInWD(filenames ...string) error { return nil }
 func (m *mockFiles) EnsureDirExists(path string) error {
-	if m.requireDir != nil {
-		return m.requireDir(path)
+	if m.ensureDirExists != nil {
+		return m.ensureDirExists(path)
 	}
 	return nil
 }

@@ -90,7 +90,7 @@ func TestDefaultFilesHandler_CreateDirIfNotExists_MkdirAllError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_EmptyList(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_EmptyList(t *testing.T) {
 	std := &mockStdlib{}
 	files := &DefaultFilesHandler{stdlib: std}
 
@@ -101,7 +101,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_EmptyList(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_AllFilesExist(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_AllFilesExist(t *testing.T) {
 	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
@@ -120,7 +120,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_AllFilesExist(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_SingleFileMissing(t *testing.T) {
 	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
@@ -147,7 +147,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_MultipleFilesMissing(t *testing.T) {
 	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/project", nil
@@ -177,7 +177,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T)
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_GetwdError(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_GetwdError(t *testing.T) {
 	expectedErr := errors.New("permission denied")
 	std := &mockStdlib{
 		getwd: func() (string, error) {
@@ -199,7 +199,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_GetwdError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_StatError(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_StatError(t *testing.T) {
 	expectedErr := errors.New("permission denied")
 	std := &mockStdlib{
 		getwd: func() (string, error) {
@@ -227,7 +227,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_StatError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_CorrectPathConstruction(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_CorrectPathConstruction(t *testing.T) {
 	var checkedPaths []string
 	std := &mockStdlib{
 		getwd: func() (string, error) {
@@ -257,7 +257,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_CorrectPathConstruction(t *testing
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_PathNotAbs(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_PathNotAbs(t *testing.T) {
 	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
 
 	err := files.EnsureDirExists("./dir/subdir")
@@ -270,7 +270,7 @@ func TestDefaultFilesHandler_RequireDir_PathNotAbs(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_NotFound(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_NotFound(t *testing.T) {
 	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			return nil, os.ErrNotExist
@@ -292,7 +292,7 @@ func TestDefaultFilesHandler_RequireDir_NotFound(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_GenericError(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_GenericError(t *testing.T) {
 	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			return nil, errors.New("permission denied")
@@ -314,7 +314,7 @@ func TestDefaultFilesHandler_RequireDir_GenericError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_NotADir(t *testing.T) {
 	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			mockFile := &mockFileInfo{
@@ -339,7 +339,7 @@ func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_Success(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_Success(t *testing.T) {
 	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			mockFile := &mockFileInfo{

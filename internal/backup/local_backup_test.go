@@ -9,7 +9,7 @@ import (
 
 type mockFilesHandler struct {
 	createDirIfNotExists func(path string) error
-	requireDir           func(path string) error
+	ensureDirExists      func(path string) error
 	copyDir              func(srcPath string, dstPath string) error
 }
 
@@ -21,8 +21,8 @@ func (m *mockFilesHandler) CreateDirIfNotExists(path string) error {
 }
 func (m *mockFilesHandler) EnsureFilesInWD(filenames ...string) error { return nil }
 func (m *mockFilesHandler) EnsureDirExists(path string) error {
-	if m.requireDir != nil {
-		return m.requireDir(path)
+	if m.ensureDirExists != nil {
+		return m.ensureDirExists(path)
 	}
 	return nil
 }
@@ -204,13 +204,13 @@ func TestDirectoryLocalBackup_Run_PreCommandError(t *testing.T) {
 	}
 }
 
-func TestDirectoryLocalBackup_Run_RequireDirError(t *testing.T) {
+func TestDirectoryLocalBackup_Run_EnsureDirExistsError(t *testing.T) {
 	expectedErr := errors.New("source directory not found")
 	backup := &DirectoryLocalBackup{
 		baseLocalBackup: &baseLocalBackup{
 			dstPath: "/dst",
 			files: &mockFilesHandler{
-				requireDir: func(path string) error {
+				ensureDirExists: func(path string) error {
 					return expectedErr
 				},
 			},
@@ -270,7 +270,7 @@ func TestDirectoryLocalBackup_Run_CorrectPathsUsed(t *testing.T) {
 					createdDstPath = path
 					return nil
 				},
-				requireDir: func(path string) error {
+				ensureDirExists: func(path string) error {
 					requiredSrcPath = path
 					return nil
 				},

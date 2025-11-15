@@ -41,15 +41,15 @@ func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
 }
 
 type mockFiles struct {
-	requireFilesInWd func(filenames ...string) error
+	ensureFilesInWD func(filenames ...string) error
 }
 
 func (m *mockFiles) CreateDirIfNotExists(path string) error {
 	return nil
 }
 func (m *mockFiles) EnsureFilesInWD(filenames ...string) error {
-	if m.requireFilesInWd != nil {
-		return m.requireFilesInWd(filenames...)
+	if m.ensureFilesInWD != nil {
+		return m.ensureFilesInWD(filenames...)
 	}
 	return nil
 }
