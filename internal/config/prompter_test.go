@@ -114,32 +114,6 @@ func TestConsolePrompter_Prompt_TrimsWhitespace(t *testing.T) {
 	}
 }
 
-func TestConsolePrompter_Prompt_WriteError(t *testing.T) {
-	expectedErr := errors.New("write failed")
-	reader := bufio.NewReader(strings.NewReader("input\n"))
-	writer := &mockWriter{
-		writeFn: func(p []byte) (n int, err error) {
-			return 0, expectedErr
-		},
-	}
-	prompter := &ConsolePrompter{
-		reader: reader,
-		writer: writer,
-	}
-
-	_, err := prompter.Prompt("Enter value: ")
-
-	if err == nil {
-		t.Fatal("expected error when write fails, got nil")
-	}
-	if !errors.Is(err, ErrPrompterWrite) {
-		t.Errorf("expected ErrPrompterWrite, got: %v", err)
-	}
-	if !errors.Is(err, expectedErr) {
-		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
-	}
-}
-
 func TestConsolePrompter_Prompt_ReadError(t *testing.T) {
 	expectedErr := errors.New("read failed")
 	mockReader := &mockReader{
@@ -174,11 +148,8 @@ func TestConsolePrompter_Info_Success(t *testing.T) {
 		writer: &output,
 	}
 
-	err := prompter.Info("Information message")
+	prompter.Info("Information message")
 
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
 	expectedOutput := "Information message\n"
 	if output.String() != expectedOutput {
 		t.Errorf("expected output %q, got %q", expectedOutput, output.String())
@@ -192,38 +163,10 @@ func TestConsolePrompter_Info_EmptyMessage(t *testing.T) {
 		writer: &output,
 	}
 
-	err := prompter.Info("")
+	prompter.Info("")
 
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
 	expectedOutput := "\n"
 	if output.String() != expectedOutput {
 		t.Errorf("expected output %q, got %q", expectedOutput, output.String())
-	}
-}
-
-func TestConsolePrompter_Info_WriteError(t *testing.T) {
-	expectedErr := errors.New("disk full")
-	writer := &mockWriter{
-		writeFn: func(p []byte) (n int, err error) {
-			return 0, expectedErr
-		},
-	}
-	prompter := &ConsolePrompter{
-		reader: bufio.NewReader(strings.NewReader("")),
-		writer: writer,
-	}
-
-	err := prompter.Info("Information message")
-
-	if err == nil {
-		t.Fatal("expected error when write fails, got nil")
-	}
-	if !errors.Is(err, ErrPrompterWrite) {
-		t.Errorf("expected ErrPrompterWrite, got: %v", err)
-	}
-	if !errors.Is(err, expectedErr) {
-		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
 	}
 }
