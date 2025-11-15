@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -195,6 +196,13 @@ type PathStrategy struct {
 	prompter Prompter
 	env      system.Env
 	files    system.FilesHandler
+	// alreadyUsedPaths contains a list of the paths that have already been used with this instance
+	// of the Path strategy. We don't want to reuse paths. For example, the user may introduce two
+	// paths with the same name, ./db, each containing the database files of 2 different MySQL
+	// databases for 2 different services. This would cause a huge issue because one service would
+	// override the files of the other service's database (provided the files themselves have the
+	// same name)
+	alreadyUsedPaths []string
 }
 
 func NewPathStrategy() *PathStrategy {
@@ -242,6 +250,12 @@ func (s *PathStrategy) Acquire(varName string, _ *string) (string, error) {
 		} else {
 			s.prompter.Info(fmt.Sprintf("Directory exists: %s", absPath))
 		}
+
+		if slices.Contains(s.alreadyUsedPaths, absPath) {
+			s.prompter.Info(fmt.Sprintf("Path cannot be reused: %q. Please try again.", absPath))
+			continue
+		}
+		s.alreadyUsedPaths = append(s.alreadyUsedPaths, absPath)
 
 		return absPath, nil
 	}

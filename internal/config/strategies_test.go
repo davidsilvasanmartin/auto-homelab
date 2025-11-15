@@ -1028,6 +1028,55 @@ func TestPathStrategy_Acquire_CreateDirError_RetriesUntilValid(t *testing.T) {
 	}
 }
 
+func TestPathStrategy_Acquire_PathReused_RetriesUntilValid(t *testing.T) {
+	callCount := 0
+	var capturedInfoMessages []string
+	alreadyUsedPath := "/used/path"
+	validPath := "/home/user/valid"
+	strategy := &PathStrategy{
+		prompter: &mockPrompter{
+			promptFunc: func(message string) (string, error) {
+				callCount++
+				if callCount <= 2 {
+					return alreadyUsedPath, nil
+				}
+				return validPath, nil
+			},
+			infoFunc: func(message string) {
+				capturedInfoMessages = append(capturedInfoMessages, message)
+			},
+		},
+		env: &mockEnv{},
+		files: &mockFiles{
+			getAbsPath: func(path string) (string, error) {
+				return path, nil
+			},
+		},
+		alreadyUsedPaths: []string{alreadyUsedPath},
+	}
+
+	result, err := strategy.Acquire("PATH_VAR", nil)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != validPath {
+		t.Errorf("expected result %q, got %q", validPath, result)
+	}
+	if callCount != 3 {
+		t.Errorf("expected 3 prompt calls, got %d", callCount)
+	}
+	pathReusedMessagesShown := 0
+	for _, msg := range capturedInfoMessages {
+		if strings.Contains(msg, "Path cannot be reused:") {
+			pathReusedMessagesShown++
+		}
+	}
+	if pathReusedMessagesShown != 2 {
+		t.Errorf("expected 2 path reused messages, got %d", pathReusedMessagesShown)
+	}
+}
+
 func TestPathStrategy_Acquire_Success_ExistingDirectory(t *testing.T) {
 	inputPath := "existing/dir"
 	absPath := "/home/user/existing/dir"
