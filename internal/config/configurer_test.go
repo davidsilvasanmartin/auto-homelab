@@ -19,10 +19,10 @@ var configJSON string = `{
 		{
 			"name": "DATABASE",
 			"description": "Database configuration",
-			"variables": [
+			"vars": [
 				{
 					"name": "HOST",
-					"type": "CONSTANT",
+					"type": "STRING",
 					"description": "Database host",
 					"value": "127.0.0.1"
 				},
@@ -36,7 +36,7 @@ var configJSON string = `{
 		{
 			"name": "SERVER",
 			"description": "Server configuration",
-			"variables": [
+			"vars": [
 				{
 					"name": "NAME",
 					"type": "STRING",
