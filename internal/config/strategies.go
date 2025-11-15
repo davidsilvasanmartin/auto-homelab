@@ -20,9 +20,9 @@ type AcquireStrategy interface {
 }
 
 var (
-	ErrConstantVarHasNoDefault = errors.New("constant variable has no default value")
-	ErrCantParseDefaultSpec    = errors.New("unable to parse default spec")
-	ErrCantGenerateSecret      = errors.New("unable to generate secret")
+	ErrNilDefaultSpec       = errors.New("default spec must not be nil")
+	ErrCantParseDefaultSpec = errors.New("unable to parse default spec")
+	ErrCantGenerateSecret   = errors.New("unable to generate secret")
 )
 
 // ConstantStrategy returns a constant value
@@ -38,7 +38,7 @@ func (s *ConstantStrategy) Acquire(varName string, defaultSpec *string) (string,
 	// We don't care about previous values of varName here (the value read from .env),
 	// we will override it
 	if defaultSpec == nil {
-		return "", fmt.Errorf("%w: %q", ErrConstantVarHasNoDefault, varName)
+		return "", fmt.Errorf("%w: %q", ErrNilDefaultSpec, varName)
 	}
 	s.prompter.Info(fmt.Sprintf("Defaulting to: %s", *defaultSpec))
 	return *defaultSpec, nil
@@ -60,7 +60,9 @@ var charsetPools = map[string]string{
 }
 
 func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
-	// TODO check defaultSpec NOT NIL
+	if defaultSpec == nil {
+		return "", fmt.Errorf("%w: %q", ErrNilDefaultSpec, varName)
+	}
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		s.prompter.Info("Not overriding already existing environment variable " + varName)
 		return val, nil

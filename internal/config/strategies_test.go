@@ -39,8 +39,8 @@ func TestConstantStrategy_Acquire_NoDefault(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when defaultSpec is nil, got nil")
 	}
-	if !errors.Is(err, ErrConstantVarHasNoDefault) {
-		t.Errorf("expected ErrConstantVarHasNoDefault, got: %v", err)
+	if !errors.Is(err, ErrNilDefaultSpec) {
+		t.Errorf("expected ErrNilDefaultSpec, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "TEST_VAR") {
 		t.Errorf("expected error message to contain variable name %q, got %q", "TEST_VAR", err.Error())
@@ -69,6 +69,22 @@ func TestConstantStrategy_Acquire_EmptyDefault(t *testing.T) {
 	expectedMessage := "Defaulting to: "
 	if capturedMessage != expectedMessage {
 		t.Errorf("expected message %q, got %q", expectedMessage, capturedMessage)
+	}
+}
+
+func TestGeneratedStrategy_Acquire_NoDefault(t *testing.T) {
+	strategy := &GeneratedStrategy{prompter: &mockPrompter{}}
+
+	_, err := strategy.Acquire("TEST_VAR", nil)
+
+	if err == nil {
+		t.Fatal("expected error when defaultSpec is nil, got nil")
+	}
+	if !errors.Is(err, ErrNilDefaultSpec) {
+		t.Errorf("expected ErrNilDefaultSpec, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "TEST_VAR") {
+		t.Errorf("expected error message to contain variable name %q, got %q", "TEST_VAR", err.Error())
 	}
 }
 
