@@ -35,6 +35,8 @@ type mockFiles struct {
 	createDirIfNotExists func(path string) error
 	requireDir           func(path string) error
 	getAbsPath           func(path string) (string, error)
+	getwd                func() (string, error)
+	writeFile            func(path string, data []byte) error
 }
 
 func (m *mockFiles) CreateDirIfNotExists(path string) error {
@@ -56,8 +58,18 @@ func (m *mockFiles) EmptyDir(path string) error {
 func (m *mockFiles) CopyDir(srcPath string, dstPath string) error {
 	return nil
 }
-func (m *mockFiles) Getwd() (dir string, err error)           { return "", nil }
-func (m *mockFiles) WriteFile(path string, data []byte) error { return nil }
+func (m *mockFiles) Getwd() (dir string, err error) {
+	if m.getwd != nil {
+		return m.getwd()
+	}
+	return "", nil
+}
+func (m *mockFiles) WriteFile(path string, data []byte) error {
+	if m.writeFile != nil {
+		return m.writeFile(path, data)
+	}
+	return nil
+}
 func (m *mockFiles) GetAbsPath(path string) (string, error) {
 	if m.getAbsPath != nil {
 		return m.getAbsPath(path)
@@ -89,12 +101,17 @@ func (m *mockStrategy) Acquire(varName string, defaultSpec *string) (string, err
 	return "mock-value", nil
 }
 
-type mockTextFormatter struct{}
+type mockTextFormatter struct {
+	formatDotenvKeyValue func(key string, value string) (string, error)
+}
 
 func (m *mockTextFormatter) WrapLines(text string, width uint) []string {
 	return []string{text}
 }
 func (m *mockTextFormatter) FormatDotenvKeyValue(key string, value string) (string, error) {
+	if m.formatDotenvKeyValue != nil {
+		return m.formatDotenvKeyValue(key, value)
+	}
 	return key + "=" + value, nil
 }
 func (m *mockTextFormatter) QuoteForPOSIXShell(text string) string {

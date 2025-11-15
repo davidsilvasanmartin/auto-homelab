@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,7 @@ type Configurer interface {
 	// ProcessConfig processes the configuration and retrieves variable values
 	ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, error)
 	// WriteConfig writes the processed configuration into a timestamped generated .env file
-	WriteConfig(envVarRoot *EnvVarRoot) (string, error)
+	WriteConfig(envVarRoot *EnvVarRoot) error
 }
 
 var (
@@ -106,12 +107,12 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 	return root, nil
 }
 
-func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) {
+func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) error {
 	builder := newDotenvBuilder(c.textFormatter)
 	for _, section := range envVarRoot.Sections {
 		err := builder.addSection(section)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 	content := builder.build()
@@ -123,16 +124,18 @@ func (c *DefaultConfigurer) WriteConfig(envVarRoot *EnvVarRoot) (string, error) 
 
 	wd, err := c.files.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	outputPath := filepath.Join(wd, filename)
 
 	if err := c.files.WriteFile(outputPath, []byte(content)); err != nil {
-		return "", fmt.Errorf("%w %q: %w", ErrConfigFileWrite, outputPath, err)
+		return fmt.Errorf("%w %q: %w", ErrConfigFileWrite, outputPath, err)
 	}
 
-	return outputPath, nil
+	slog.Info("wrote config file", "outputPath", outputPath, "totalVars", builder.totalVars)
+
+	return nil
 }
 
 // dotenvBuilder builds a .env file from the parsed configuration

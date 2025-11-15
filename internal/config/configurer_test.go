@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/format"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -130,6 +131,27 @@ var envVarRoot *EnvVarRoot = &EnvVarRoot{
 		},
 	},
 }
+var testTextFormatter format.TextFormatter = &mockTextFormatter{
+	formatDotenvKeyValue: func(key string, value string) (string, error) {
+		return key + "=" + value, nil
+	},
+}
+var generatedEnv string = `########################################################################################################################
+# TEST_DATABASE
+# Database configuration
+########################################################################################################################
+# Database host
+TEST_DATABASE_HOST=TEST_DATABASE_HOST#127.0.0.1#value
+# Database password
+TEST_DATABASE_PASSWORD=TEST_DATABASE_PASSWORD##value
+
+########################################################################################################################
+# TEST_SERVER
+# Server configuration
+########################################################################################################################
+# Server name
+TEST_SERVER_NAME=TEST_SERVER_NAME#MyServer#value
+`
 
 func TestDefaultConfigurer_LoadConfig_Success(t *testing.T) {
 	tempDir := t.TempDir()
@@ -153,7 +175,7 @@ func TestDefaultConfigurer_LoadConfig_Success(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 	if diff := cmp.Diff(configRoot, result); diff != "" {
-		t.Errorf("args mismatch (-want +got):\n%s", diff)
+		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -256,7 +278,7 @@ func TestDefaultConfigurer_ProcessConfig_Success(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if diff := cmp.Diff(envVarRoot, result); diff != "" {
-		t.Errorf("args mismatch (-want +got):\n%s", diff)
+		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 	if len(capturedInfoMessages) < 2 {
 		t.Errorf("expected at least 2 info messages, got %d", len(capturedInfoMessages))
@@ -284,7 +306,7 @@ func TestDefaultConfigurer_ProcessConfig_EmptyConfig(t *testing.T) {
 		Sections: []EnvVarSection{},
 	}
 	if diff := cmp.Diff(expectedEnvVarRoot, result); diff != "" {
-		t.Errorf("args mismatch (-want +got):\n%s", diff)
+		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -376,5 +398,118 @@ func TestDefaultConfigurer_ProcessConfig_ErrorWhenAcquiringValue(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "TEST_SECTION1_VAR1") {
 		t.Errorf("expected error message to contain var name %q, got %q", "TEST_SECTION1_VAR1", err.Error())
+	}
+}
+
+func TestDefaultConfigurer_WriteConfig_Success(t *testing.T) {
+	var capturedPath string
+	var capturedData []byte
+	configurer := &DefaultConfigurer{
+		prompter:         &mockPrompter{},
+		strategyRegistry: &mockStrategyRegistry{},
+		textFormatter:    testTextFormatter,
+		files: &mockFiles{
+			getwd: func() (dir string, err error) {
+				return "/home/user", nil
+			},
+			writeFile: func(path string, data []byte) error {
+				capturedPath = path
+				capturedData = data
+				return nil
+			},
+		},
+	}
+
+	err := configurer.WriteConfig(envVarRoot)
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !strings.HasPrefix(capturedPath, "/home/user/.env.generated.") {
+		t.Errorf("expected path to start with '/home/user/.env.generated.', got %q", capturedPath)
+	}
+	if !strings.HasSuffix(capturedPath, ".env") {
+		t.Errorf("expected path to end with '.env', got %q", capturedPath)
+	}
+	if diff := cmp.Diff(generatedEnv, string(capturedData)); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestDefaultConfigurer_WriteConfig_ErrorWhenFormatDotenvKeyValue(t *testing.T) {
+	expectedErr := errors.New("format error")
+	configurer := &DefaultConfigurer{
+		prompter:         &mockPrompter{},
+		strategyRegistry: &mockStrategyRegistry{},
+		textFormatter: &mockTextFormatter{
+			formatDotenvKeyValue: func(key string, value string) (string, error) {
+				return "", expectedErr
+			},
+		},
+		files: &mockFiles{},
+	}
+
+	err := configurer.WriteConfig(envVarRoot)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap expectedErr, got: %v", err)
+	}
+}
+
+func TestDefaultConfigurer_WriteConfig_ErrorWhenGetwd(t *testing.T) {
+	expectedErr := errors.New("getwd failed")
+	configurer := &DefaultConfigurer{
+		prompter:         &mockPrompter{},
+		strategyRegistry: &mockStrategyRegistry{},
+		textFormatter:    testTextFormatter,
+		files: &mockFiles{
+			getwd: func() (dir string, err error) {
+				return "", expectedErr
+			},
+		},
+	}
+
+	err := configurer.WriteConfig(envVarRoot)
+
+	if err == nil {
+		t.Fatal("expected error when Getwd fails, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap expectedErr, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "failed to get working directory") {
+		t.Errorf("expected error message to contain 'failed to get working directory', got %q", err.Error())
+	}
+}
+
+func TestDefaultConfigurer_WriteConfig_ErrorWhenWriteFile(t *testing.T) {
+	expectedErr := errors.New("write failed")
+	configurer := &DefaultConfigurer{
+		prompter:         &mockPrompter{},
+		strategyRegistry: &mockStrategyRegistry{},
+		textFormatter:    testTextFormatter,
+		files: &mockFiles{
+			getwd: func() (dir string, err error) {
+				return "/home/user", nil
+			},
+			writeFile: func(path string, data []byte) error {
+				return expectedErr
+			},
+		},
+	}
+
+	err := configurer.WriteConfig(envVarRoot)
+
+	if err == nil {
+		t.Fatal("expected error when WriteFile fails, got nil")
+	}
+	if !errors.Is(err, ErrConfigFileWrite) {
+		t.Errorf("expected ErrConfigFileWrite, got: %v", err)
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap expectedErr, got: %v", err)
 	}
 }

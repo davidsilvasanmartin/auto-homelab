@@ -34,13 +34,11 @@ func configure(configurer config.Configurer) error {
 		log.Fatalf("Failed to process config: %v", err)
 	}
 
-	outputPath, err := configurer.WriteConfig(envVars)
+	err = configurer.WriteConfig(envVars)
 	if err != nil {
 		log.Fatalf("Failed to write config: %v", err)
 	}
 
-	slog.Info("Configuration finished successfully",
-		"sectionsProcessed", len(envVars.Sections),
-		"outputFile", outputPath)
+	slog.Info("Configuration finished successfully")
 	return nil
 }
