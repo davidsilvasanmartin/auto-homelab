@@ -42,6 +42,8 @@ type mockStdlib struct {
 	mkdirAll     func(path string, mode os.FileMode) error
 	removeAll    func(path string) error
 	sleep        func(d time.Duration)
+	writeFile    func(name string, data []byte, perm os.FileMode) error
+	filepathAbs  func(path string) (string, error)
 }
 
 func (m *mockStdlib) Getwd() (string, error) {
@@ -50,44 +52,50 @@ func (m *mockStdlib) Getwd() (string, error) {
 	}
 	return "", nil
 }
-
 func (m *mockStdlib) Stat(name string) (os.FileInfo, error) {
 	if m.stat != nil {
 		return m.stat(name)
 	}
 	return nil, nil
 }
-
 func (m *mockStdlib) ExecCommand(name string, arg ...string) RunnableCommand {
 	if m.execCommand != nil {
 		return m.execCommand(name, arg...)
 	}
 	return nil
 }
-
 func (m *mockStdlib) ExecLookPath(file string) (string, error) {
 	if m.execLookPath != nil {
 		return m.execLookPath(file)
 	}
 	return "", nil
 }
-
 func (m *mockStdlib) MkdirAll(path string, perm os.FileMode) error {
 	if m.mkdirAll != nil {
 		return m.mkdirAll(path, perm)
 	}
 	return nil
 }
-
 func (m *mockStdlib) RemoveAll(path string) error {
 	if m.removeAll != nil {
 		return m.removeAll(path)
 	}
 	return nil
 }
-
 func (m *mockStdlib) Sleep(d time.Duration) {
 	if m.sleep != nil {
 		m.sleep(d)
 	}
+}
+func (m *mockStdlib) WriteFile(name string, data []byte, perm os.FileMode) error {
+	if m.writeFile != nil {
+		return m.writeFile(name, data, perm)
+	}
+	return nil
+}
+func (m *mockStdlib) FilepathAbs(path string) (string, error) {
+	if m.filepathAbs != nil {
+		return m.filepathAbs(path)
+	}
+	return "", nil
 }

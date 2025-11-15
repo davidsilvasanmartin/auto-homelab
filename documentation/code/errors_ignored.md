@@ -1,0 +1,1 @@
+- I'm going to ignore errors of Print functions on stdout, based on this comment https://groups.google.com/g/golang-nuts/c/IR4AfxUKZEI/m/tZ-A8fn7GgAJ

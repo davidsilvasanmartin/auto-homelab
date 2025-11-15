@@ -33,7 +33,6 @@ func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCo
 	}
 	return nil
 }
-
 func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
 	if m.execShellCommand != nil {
 		return m.execShellCommand(cmd)
@@ -42,31 +41,30 @@ func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
 }
 
 type mockFiles struct {
-	requireFilesInWd func(filenames ...string) error
+	ensureFilesInWD func(filenames ...string) error
 }
 
 func (m *mockFiles) CreateDirIfNotExists(path string) error {
 	return nil
 }
-
-func (m *mockFiles) RequireFilesInWd(filenames ...string) error {
-	if m.requireFilesInWd != nil {
-		return m.requireFilesInWd(filenames...)
+func (m *mockFiles) EnsureFilesInWD(filenames ...string) error {
+	if m.ensureFilesInWD != nil {
+		return m.ensureFilesInWD(filenames...)
 	}
 	return nil
 }
-
-func (m *mockFiles) RequireDir(path string) error {
+func (m *mockFiles) EnsureDirExists(path string) error {
 	return nil
 }
-
 func (m *mockFiles) EmptyDir(path string) error {
 	return nil
 }
-
 func (m *mockFiles) CopyDir(srcPath string, dstPath string) error {
 	return nil
 }
+func (m *mockFiles) Getwd() (dir string, err error)           { return "", nil }
+func (m *mockFiles) WriteFile(path string, data []byte) error { return nil }
+func (m *mockFiles) GetAbsPath(path string) (string, error)   { return "", nil }
 
 type mockTime struct{}
 

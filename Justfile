@@ -13,7 +13,7 @@ help:
 
 # [🔧 APP] Interactive script that creates a `.env.<timestamp>` file
 configure:
-    if [  -f ".env" ]; then {{uv}} run --env-file=.env -m scripts.configuration.configure; else {{uv}} run -m scripts.configuration.configure; fi
+    go run . --log-level debug configure
 
 # [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
 start *services="":
@@ -57,6 +57,10 @@ dev-test:
 # [🧪 DEV] Runs the tests of Go scripts, ignoring cache
 dev-test-no-cache:
     go test ./... -count=1
+
+# [🧪 DEV] Runs the tests of Go scripts and shows coverage information
+dev-test-cover:
+    go test ./... -cover
 
 # TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
 # [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`

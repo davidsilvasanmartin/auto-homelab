@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"strings"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
+	"github.com/davidsilvasanmartin/auto-homelab/internal/format"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
 
@@ -71,7 +71,6 @@ func (d *DirectoryLocalBackup) Run() error {
 		return err
 	}
 
-	// Run pre-command if provided
 	if d.preCommand != "" {
 		slog.Info("Running pre-command", "preCommand", d.preCommand)
 		cmd := d.commands.ExecShellCommand(d.preCommand)
@@ -81,7 +80,7 @@ func (d *DirectoryLocalBackup) Run() error {
 		slog.Info("Successfully ran pre-command", "preCommand", d.preCommand)
 	}
 
-	if err := d.files.RequireDir(d.srcPath); err != nil {
+	if err := d.files.EnsureDirExists(d.srcPath); err != nil {
 		return err
 	}
 
@@ -97,6 +96,7 @@ func (d *DirectoryLocalBackup) Run() error {
 type PostgreSQLLocalBackup struct {
 	*baseLocalBackup
 	dockerRunner  docker.Runner
+	textFormatter format.TextFormatter
 	containerName string
 	dbName        string
 	username      string
@@ -111,6 +111,7 @@ func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath
 			system.NewDefaultFilesHandler(),
 		),
 		dockerRunner:  docker.NewSystemRunner(),
+		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -131,7 +132,7 @@ func (p *PostgreSQLLocalBackup) Run() error {
 		return fmt.Errorf("PostgreSQL database %s not ready: %w", p.dbName, err)
 	}
 
-	quotedPassword := shQuote(p.password)
+	quotedPassword := p.textFormatter.QuoteForPOSIXShell(p.password)
 	containerCmd := fmt.Sprintf(
 		`/bin/bash -c "PGPASSWORD=%s pg_dump --username %s %s" > %s`,
 		quotedPassword,
@@ -148,16 +149,11 @@ func (p *PostgreSQLLocalBackup) Run() error {
 	return nil
 }
 
-// shQuote Wrap a string in single quotes for POSIX shells, escaping any embedded single quotes safely.
-// This transforms p'q into 'p'"'"'q' which the shell interprets as a single literal string.
-func shQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
-}
-
 // MySQLLocalBackup handles MySQL database backups using docker exec
 type MySQLLocalBackup struct {
 	*baseLocalBackup
 	dockerRunner  docker.Runner
+	textFormatter format.TextFormatter
 	containerName string
 	dbName        string
 	username      string
@@ -172,6 +168,7 @@ func NewMySQLLocalBackup(containerName, dbName, username, password, dstPath stri
 			system.NewDefaultFilesHandler(),
 		),
 		dockerRunner:  docker.NewSystemRunner(),
+		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,
@@ -192,7 +189,7 @@ func (m *MySQLLocalBackup) Run() error {
 		return fmt.Errorf("MySQL database %s not ready: %w", m.dbName, err)
 	}
 
-	quotedPassword := shQuote(m.password)
+	quotedPassword := m.textFormatter.QuoteForPOSIXShell(m.password)
 	containerCmd := fmt.Sprintf(
 		`/bin/bash -c "MYSQL_PWD=%s mysqldump --user %s %s" > %s`,
 		quotedPassword,
@@ -212,6 +209,7 @@ func (m *MySQLLocalBackup) Run() error {
 type MariaDBLocalBackup struct {
 	*baseLocalBackup
 	dockerRunner  docker.Runner
+	textFormatter format.TextFormatter
 	containerName string
 	dbName        string
 	username      string
@@ -246,7 +244,7 @@ func (m *MariaDBLocalBackup) Run() error {
 		return fmt.Errorf("MariaDB database %s not ready: %w", m.dbName, err)
 	}
 
-	quotedPassword := shQuote(m.password)
+	quotedPassword := m.textFormatter.QuoteForPOSIXShell(m.password)
 	containerCmd := fmt.Sprintf(
 		`/bin/bash -c "MYSQL_PWD=%s mariadb-dump --user %s %s" > %s`,
 		quotedPassword,

@@ -55,7 +55,7 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 
 // ... existing code ...
 
-func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
+func (d *DefaultFilesHandler) EnsureFilesInWD(filenames ...string) error {
 	if len(filenames) == 0 {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 	return nil
 }
 
-func (d *DefaultFilesHandler) RequireDir(path string) error {
+func (d *DefaultFilesHandler) EnsureDirExists(path string) error {
 	cleanedPath := filepath.Clean(path)
 	if !filepath.IsAbs(cleanedPath) {
 		return fmt.Errorf("%w: %q. Please use an absolute path", ErrPathNotAbsolute, path)
@@ -181,7 +181,7 @@ func TestDefaultFilesHandler_CreateDirIfNotExists_MkdirAllError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_SingleFileMissing(t *testing.T) {
 	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/home/user/project", nil
@@ -195,7 +195,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("existing.txt", "missing.txt")
+	err := files.EnsureFilesInWD("existing.txt", "missing.txt")
 
 	if err == nil {
 		t.Fatal("expected error when file is missing, got nil")
@@ -426,7 +426,7 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	return nil
 }
 
-func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
+func (d *DefaultFilesHandler) EnsureFilesInWD(filenames ...string) error {
 	if len(filenames) == 0 {
 		return nil
 	}
@@ -458,7 +458,7 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 	return nil
 }
 
-func (d *DefaultFilesHandler) RequireDir(path string) error {
+func (d *DefaultFilesHandler) EnsureDirExists(path string) error {
 	cleanedPath := filepath.Clean(path)
 	if !filepath.IsAbs(cleanedPath) {
 		return &NotAbsolutePathError{Path: path}
@@ -582,7 +582,7 @@ func TestDefaultFilesHandler_CreateDirIfNotExists_MkdirAllError(t *testing.T) {
 	}
 }
 
-func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T) {
+func TestDefaultFilesHandler_EnsureFilesInWD_MultipleFilesMissing(t *testing.T) {
 	std := &mockStdlib{
 		getwd: func() (string, error) {
 			return "/project", nil
@@ -596,7 +596,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T)
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("file1.txt", "missing1.txt", "file2.txt", "missing2.txt")
+	err := files.EnsureFilesInWD("file1.txt", "missing1.txt", "file2.txt", "missing2.txt")
 
 	if err == nil {
 		t.Fatal("expected error when files are missing, got nil")
@@ -620,7 +620,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T)
 	}
 }
 
-func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
+func TestDefaultFilesHandler_EnsureDirExists_NotADir(t *testing.T) {
 	std := &mockStdlib{
 		stat: func(name string) (os.FileInfo, error) {
 			mockFile := &mockFileInfo{
@@ -632,7 +632,7 @@ func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireDir("/home/user/file.txt")
+	err := files.EnsureDirExists("/home/user/file.txt")
 
 	if err == nil {
 		t.Fatal("expected error when path is not a directory, got nil")

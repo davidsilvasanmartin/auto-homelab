@@ -12,18 +12,25 @@ import (
 type FilesHandler interface {
 	// CreateDirIfNotExists creates the directory at the specified path if it doesn't exist
 	CreateDirIfNotExists(path string) error
-	// RequireFilesInWd requires that the files exist in the current working directory, or errors if they don't
-	RequireFilesInWd(filenames ...string) error
-	// RequireDir requires that a directory exists
-	RequireDir(path string) error
+	// EnsureFilesInWD requires that the files exist in the current working directory, or errors if they don't
+	EnsureFilesInWD(filenames ...string) error
+	// EnsureDirExists requires that a directory exists, or throws an error if it doesn't
+	EnsureDirExists(path string) error
 	// EmptyDir empties a directory. The directory must exist
 	EmptyDir(path string) error
 	// CopyDir copies a directory, from srcPath into dstPath
 	CopyDir(srcPath string, dstPath string) error
+	// Getwd gets the current working directory
+	Getwd() (dir string, err error)
+	// WriteFile writes the content to a file
+	WriteFile(path string, data []byte) error
+	// GetAbsPath gets the absolute path from a relative (or absolute) path and cleans it
+	GetAbsPath(path string) (string, error)
 }
 
 const (
-	defaultDirPerms os.FileMode = 0o755
+	defaultDirPerms  os.FileMode = 0o755
+	defaultFilePerms os.FileMode = 0o644
 )
 
 var (
@@ -35,6 +42,8 @@ var (
 	ErrFailedToRemoveDir    = errors.New("failed to remove directory")
 	ErrFailedToCopyDir      = errors.New("failed to copy directory")
 	ErrFailedToCheckPath    = errors.New("failed to check file or directory at path")
+	ErrFailedToWriteFile    = errors.New("failed to write file")
+	ErrFailedToGetAbsPath   = errors.New("failed to get abs path")
 )
 
 type DefaultFilesHandler struct {
@@ -55,11 +64,13 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	if err := d.stdlib.MkdirAll(cleanPath, defaultDirPerms); err != nil {
 		return fmt.Errorf("%w %q: %w", ErrFailedToCreateDir, cleanPath, err)
 	}
+	// At this point it is guaranteed that the directory exists. For example, if the path was a file,
+	// MkdirAll would have returned an error
 	slog.Debug("Created directory", "path", path)
 	return nil
 }
 
-func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
+func (d *DefaultFilesHandler) EnsureFilesInWD(filenames ...string) error {
 	if len(filenames) == 0 {
 		return nil
 	}
@@ -89,8 +100,8 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 	return nil
 }
 
-// RequireDir requires that a directory exists, or throws an error if it doesn't
-func (d *DefaultFilesHandler) RequireDir(path string) error {
+// EnsureDirExists requires that a directory exists, or throws an error if it doesn't
+func (d *DefaultFilesHandler) EnsureDirExists(path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, path)
 	}
@@ -137,4 +148,23 @@ func (d *DefaultFilesHandler) CopyDir(srcPath string, dstPath string) error {
 	}
 	slog.Debug("Successfully copied directory", "srcPath", cleanSrcPath, "dstPath", cleanDstPath)
 	return nil
+}
+
+func (d *DefaultFilesHandler) Getwd() (dir string, err error) {
+	return d.stdlib.Getwd()
+}
+
+func (d *DefaultFilesHandler) WriteFile(path string, data []byte) error {
+	if err := d.stdlib.WriteFile(path, data, defaultFilePerms); err != nil {
+		return fmt.Errorf("%w %q: %w", ErrFailedToWriteFile, path, err)
+	}
+	return nil
+}
+
+func (d *DefaultFilesHandler) GetAbsPath(path string) (string, error) {
+	absPath, err := d.stdlib.FilepathAbs(path)
+	if err != nil {
+		return "", fmt.Errorf("%w %q: %w", ErrFailedToGetAbsPath, path, err)
+	}
+	return absPath, nil
 }
