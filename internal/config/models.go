@@ -14,7 +14,7 @@ type ConfigVar struct {
 type ConfigSection struct {
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
-	Variables   []ConfigVar `json:"variables"`
+	Vars        []ConfigVar `json:"vars"`
 }
 
 // ConfigRoot represents the root structure of the JSON config file
@@ -39,6 +39,5 @@ type EnvVarSection struct {
 
 // EnvVarRoot is the root configuration containing all sections
 type EnvVarRoot struct {
-	Prefix   string
 	Sections []EnvVarSection
 }

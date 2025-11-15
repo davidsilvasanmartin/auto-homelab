@@ -12,10 +12,10 @@ import (
 type FilesHandler interface {
 	// CreateDirIfNotExists creates the directory at the specified path if it doesn't exist
 	CreateDirIfNotExists(path string) error
-	// RequireFilesInWd requires that the files exist in the current working directory, or errors if they don't
-	RequireFilesInWd(filenames ...string) error
-	// RequireDir requires that a directory exists
-	RequireDir(path string) error
+	// EnsureFilesInWD requires that the files exist in the current working directory, or errors if they don't
+	EnsureFilesInWD(filenames ...string) error
+	// EnsureDirExists requires that a directory exists
+	EnsureDirExists(path string) error
 	// EmptyDir empties a directory. The directory must exist
 	EmptyDir(path string) error
 	// CopyDir copies a directory, from srcPath into dstPath
@@ -70,7 +70,7 @@ func (d *DefaultFilesHandler) CreateDirIfNotExists(path string) error {
 	return nil
 }
 
-func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
+func (d *DefaultFilesHandler) EnsureFilesInWD(filenames ...string) error {
 	if len(filenames) == 0 {
 		return nil
 	}
@@ -101,7 +101,7 @@ func (d *DefaultFilesHandler) RequireFilesInWd(filenames ...string) error {
 }
 
 // RequireDir requires that a directory exists, or throws an error if it doesn't
-func (d *DefaultFilesHandler) RequireDir(path string) error {
+func (d *DefaultFilesHandler) EnsureDirExists(path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("%w: %q", ErrPathNotAbsolute, path)
 	}

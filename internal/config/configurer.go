@@ -34,7 +34,7 @@ var (
 
 type DefaultConfigurer struct {
 	prompter         Prompter
-	strategyRegistry *StrategyRegistry
+	strategyRegistry StrategyRegistry
 	textFormatter    format.TextFormatter
 	files            system.FilesHandler
 }
@@ -42,7 +42,7 @@ type DefaultConfigurer struct {
 func NewDefaultConfigurer() *DefaultConfigurer {
 	return &DefaultConfigurer{
 		prompter:         NewConsolePrompter(),
-		strategyRegistry: NewStrategyRegistry(),
+		strategyRegistry: NewDefaultStrategyRegistry(),
 		textFormatter:    format.NewDefaultTextFormatter(),
 		files:            system.NewDefaultFilesHandler(),
 	}
@@ -64,33 +64,29 @@ func (c *DefaultConfigurer) LoadConfig(configFilePath string) (*ConfigRoot, erro
 
 func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, error) {
 	root := &EnvVarRoot{
-		Prefix:   configRoot.Prefix,
 		Sections: make([]EnvVarSection, 0, len(configRoot.Sections)),
 	}
 
 	for _, configSection := range configRoot.Sections {
-		sectionName := fmt.Sprintf("%s_%s", root.Prefix, configSection.Name)
 		section := EnvVarSection{
-			Name:        sectionName,
+			Name:        fmt.Sprintf("%s_%s", configRoot.Prefix, configSection.Name),
 			Description: configSection.Description,
-			Vars:        make([]EnvVar, 0, len(configSection.Variables)),
+			Vars:        make([]EnvVar, 0, len(configSection.Vars)),
 		}
 
 		c.prompter.Info(fmt.Sprintf("\n\n>>>>>>>>>> Section: %s", section.Name))
 		c.prompter.Info(section.Description)
 
-		for _, configVar := range configSection.Variables {
+		for _, configVar := range configSection.Vars {
 			varName := fmt.Sprintf("%s_%s", section.Name, configVar.Name)
 
 			c.prompter.Info(fmt.Sprintf("\n> %s: %s", varName, configVar.Description))
 
-			// Get the appropriate strategy
 			strategy, err := c.strategyRegistry.Get(configVar.Type)
 			if err != nil {
-				return nil, fmt.Errorf("%w %q (var name %q): %w", ErrVarType, configVar.Type, varName, err)
+				return nil, fmt.Errorf("%w %q (varName=%q): %w", ErrVarType, configVar.Type, varName, err)
 			}
 
-			// Acquire the value using the strategy
 			value, err := strategy.Acquire(varName, configVar.Value)
 			if err != nil {
 				return nil, fmt.Errorf("%w %q: %w", ErrVarAcquireVal, varName, err)
@@ -99,8 +95,7 @@ func (c *DefaultConfigurer) ProcessConfig(configRoot *ConfigRoot) (*EnvVarRoot, 
 			envVar := EnvVar{
 				Name:        varName,
 				Description: configVar.Description,
-				// TODO TRIM VALUE, and test
-				Value: value,
+				Value:       value,
 			}
 			section.Vars = append(section.Vars, envVar)
 		}

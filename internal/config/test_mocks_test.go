@@ -43,8 +43,8 @@ func (m *mockFiles) CreateDirIfNotExists(path string) error {
 	}
 	return nil
 }
-func (m *mockFiles) RequireFilesInWd(filenames ...string) error { return nil }
-func (m *mockFiles) RequireDir(path string) error {
+func (m *mockFiles) EnsureFilesInWD(filenames ...string) error { return nil }
+func (m *mockFiles) EnsureDirExists(path string) error {
 	if m.requireDir != nil {
 		return m.requireDir(path)
 	}

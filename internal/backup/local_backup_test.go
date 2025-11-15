@@ -19,8 +19,8 @@ func (m *mockFilesHandler) CreateDirIfNotExists(path string) error {
 	}
 	return nil
 }
-func (m *mockFilesHandler) RequireFilesInWd(filenames ...string) error { return nil }
-func (m *mockFilesHandler) RequireDir(path string) error {
+func (m *mockFilesHandler) EnsureFilesInWD(filenames ...string) error { return nil }
+func (m *mockFilesHandler) EnsureDirExists(path string) error {
 	if m.requireDir != nil {
 		return m.requireDir(path)
 	}
@@ -295,7 +295,7 @@ func TestDirectoryLocalBackup_Run_CorrectPathsUsed(t *testing.T) {
 		t.Errorf("expected CreateDirIfNotExists to be called with %q, got %q", dstPath, createdDstPath)
 	}
 	if requiredSrcPath != srcPath {
-		t.Errorf("expected RequireDir to be called with %q, got %q", srcPath, requiredSrcPath)
+		t.Errorf("expected EnsureDirExists to be called with %q, got %q", srcPath, requiredSrcPath)
 	}
 	if copiedSrcPath != srcPath {
 		t.Errorf("expected CopyDir source to be %q, got %q", srcPath, copiedSrcPath)

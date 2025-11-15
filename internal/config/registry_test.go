@@ -7,7 +7,7 @@ import (
 )
 
 func TestStrategyRegistry_Register_Success(t *testing.T) {
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 	strategy := &mockStrategy{}
@@ -37,7 +37,7 @@ func TestStrategyRegistry_Register_ConvertsToUppercase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := &StrategyRegistry{
+			registry := &DefaultStrategyRegistry{
 				strategies: make(map[string]AcquireStrategy),
 			}
 			strategy := &mockStrategy{}
@@ -52,7 +52,7 @@ func TestStrategyRegistry_Register_ConvertsToUppercase(t *testing.T) {
 }
 
 func TestStrategyRegistry_Register_ReplacesExistingStrategy(t *testing.T) {
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 	firstStrategy := &mockStrategy{
@@ -87,7 +87,7 @@ func TestStrategyRegistry_Register_ReplacesExistingStrategy(t *testing.T) {
 }
 
 func TestStrategyRegistry_Register_DifferentCasesReplaceEachOther(t *testing.T) {
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 	firstStrategy := &mockStrategy{}
@@ -105,7 +105,7 @@ func TestStrategyRegistry_Register_DifferentCasesReplaceEachOther(t *testing.T) 
 }
 
 func TestStrategyRegistry_Get_ReturnsRegisteredStrategy(t *testing.T) {
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 	strategy := &mockStrategy{}
@@ -136,7 +136,7 @@ func TestStrategyRegistry_Get_CaseInsensitive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := &StrategyRegistry{
+			registry := &DefaultStrategyRegistry{
 				strategies: make(map[string]AcquireStrategy),
 			}
 			strategy := &mockStrategy{}
@@ -156,7 +156,7 @@ func TestStrategyRegistry_Get_CaseInsensitive(t *testing.T) {
 
 func TestStrategyRegistry_Get_UnregisteredType_ReturnsError(t *testing.T) {
 	unregisteredType := "NONEXISTENT"
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 
@@ -174,7 +174,7 @@ func TestStrategyRegistry_Get_UnregisteredType_ReturnsError(t *testing.T) {
 }
 
 func TestStrategyRegistry_Get_MultipleStrategies(t *testing.T) {
-	registry := &StrategyRegistry{
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 	strategy1 := &mockStrategy{

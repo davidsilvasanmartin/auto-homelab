@@ -60,6 +60,7 @@ var charsetPools = map[string]string{
 }
 
 func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
+	// TODO check defaultSpec NOT NIL
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -126,7 +127,7 @@ func NewIPStrategy() *IPStrategy {
 	return &IPStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv()}
 }
 
-func (s *IPStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
+func (s *IPStrategy) Acquire(varName string, _ *string) (string, error) {
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -162,7 +163,7 @@ func NewStringStrategy() *StringStrategy {
 	return &StringStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv()}
 }
 
-func (s *StringStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
+func (s *StringStrategy) Acquire(varName string, _ *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
@@ -195,7 +196,7 @@ func NewPathStrategy() *PathStrategy {
 	return &PathStrategy{prompter: NewConsolePrompter(), env: system.NewDefaultEnv(), files: system.NewDefaultFilesHandler()}
 }
 
-func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
+func (s *PathStrategy) Acquire(varName string, _ *string) (string, error) {
 	if val, exists := s.env.GetEnv(varName); exists == true {
 		return val, nil
 	}
@@ -226,7 +227,7 @@ func (s *PathStrategy) Acquire(varName string, defaultSpec *string) (string, err
 		// Check if the directory exists. If it does, we continue, and if it doesn't, we try to create it. If directory
 		// creation fails, it can be due to an error such as insufficient permissions, so we let the user try again
 		// with another directory
-		if err := s.files.RequireDir(absPath); err != nil {
+		if err := s.files.EnsureDirExists(absPath); err != nil {
 			if err := s.files.CreateDirIfNotExists(absPath); err != nil {
 				s.prompter.Info(fmt.Sprintf("Invalid path: %v. Please try again.", err))
 				continue

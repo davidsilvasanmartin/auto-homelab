@@ -80,7 +80,7 @@ func (d *DirectoryLocalBackup) Run() error {
 		slog.Info("Successfully ran pre-command", "preCommand", d.preCommand)
 	}
 
-	if err := d.files.RequireDir(d.srcPath); err != nil {
+	if err := d.files.EnsureDirExists(d.srcPath); err != nil {
 		return err
 	}
 

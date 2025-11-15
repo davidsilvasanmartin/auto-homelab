@@ -94,7 +94,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_EmptyList(t *testing.T) {
 	std := &mockStdlib{}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd()
+	err := files.EnsureFilesInWD()
 
 	if err != nil {
 		t.Errorf("expected no error for empty file list, got %v", err)
@@ -113,7 +113,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_AllFilesExist(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("file1.txt", "file2.go", "config.yml")
+	err := files.EnsureFilesInWD("file1.txt", "file2.go", "config.yml")
 
 	if err != nil {
 		t.Errorf("expected no error when all files exist, got: %v", err)
@@ -134,7 +134,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_SingleFileMissing(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("existing.txt", "missing.txt")
+	err := files.EnsureFilesInWD("existing.txt", "missing.txt")
 
 	if err == nil {
 		t.Fatal("expected error when file is missing, got nil")
@@ -161,7 +161,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_MultipleFilesMissing(t *testing.T)
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("file1.txt", "missing1.txt", "file2.txt", "missing2.txt")
+	err := files.EnsureFilesInWD("file1.txt", "missing1.txt", "file2.txt", "missing2.txt")
 
 	if err == nil {
 		t.Fatal("expected error when files are missing, got nil")
@@ -186,7 +186,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_GetwdError(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("file.txt")
+	err := files.EnsureFilesInWD("file.txt")
 
 	if err == nil {
 		t.Fatal("expected error when Getwd fails, got nil")
@@ -214,7 +214,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_StatError(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireFilesInWd("normal.txt", "restricted.txt")
+	err := files.EnsureFilesInWD("normal.txt", "restricted.txt")
 
 	if err == nil {
 		t.Fatal("expected error when Stat fails, got nil")
@@ -240,7 +240,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_CorrectPathConstruction(t *testing
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	_ = files.RequireFilesInWd("f1.go", "subdir/f2.go", "/../project///subdirWithSlash/f3.go")
+	_ = files.EnsureFilesInWD("f1.go", "subdir/f2.go", "/../project///subdirWithSlash/f3.go")
 	expectedPaths := []string{
 		"/home/user/project/f1.go",
 		"/home/user/project/subdir/f2.go",
@@ -260,7 +260,7 @@ func TestDefaultFilesHandler_RequireFilesInWd_CorrectPathConstruction(t *testing
 func TestDefaultFilesHandler_RequireDir_PathNotAbs(t *testing.T) {
 	files := &DefaultFilesHandler{stdlib: &mockStdlib{}}
 
-	err := files.RequireDir("./dir/subdir")
+	err := files.EnsureDirExists("./dir/subdir")
 
 	if err == nil {
 		t.Fatal("expected error when path is relative, got nil")
@@ -279,7 +279,7 @@ func TestDefaultFilesHandler_RequireDir_NotFound(t *testing.T) {
 	files := &DefaultFilesHandler{stdlib: std}
 	path := "/home/user/dir"
 
-	err := files.RequireDir(path)
+	err := files.EnsureDirExists(path)
 
 	if err == nil {
 		t.Fatal("expected error when dir missing, got nil")
@@ -301,7 +301,7 @@ func TestDefaultFilesHandler_RequireDir_GenericError(t *testing.T) {
 	files := &DefaultFilesHandler{stdlib: std}
 	path := "/home/user/dir"
 
-	err := files.RequireDir(path)
+	err := files.EnsureDirExists(path)
 
 	if err == nil {
 		t.Fatal("expected error when dir cannot be checked, got nil")
@@ -326,7 +326,7 @@ func TestDefaultFilesHandler_RequireDir_NotADir(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireDir("/home/user/file.txt")
+	err := files.EnsureDirExists("/home/user/file.txt")
 
 	if err == nil {
 		t.Fatal("expected error when dir is a file, got nil")
@@ -351,7 +351,7 @@ func TestDefaultFilesHandler_RequireDir_Success(t *testing.T) {
 	}
 	files := &DefaultFilesHandler{stdlib: std}
 
-	err := files.RequireDir("/home/user/dir")
+	err := files.EnsureDirExists("/home/user/dir")
 
 	if err != nil {
 		t.Errorf("expected no error when directory exists, got %v", err)

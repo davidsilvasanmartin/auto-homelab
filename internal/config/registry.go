@@ -8,8 +8,14 @@ import (
 
 // Variable acquisition strategy registration and lookup
 
-// StrategyRegistry maintains a registry of acquisition strategies by type name
-type StrategyRegistry struct {
+// StrategyRegistry registers variable acquisition strategies
+type StrategyRegistry interface {
+	Register(typeName string, strategy AcquireStrategy)
+	Get(typeName string) (AcquireStrategy, error)
+}
+
+// DefaultStrategyRegistry maintains a registry of acquisition strategies by type name
+type DefaultStrategyRegistry struct {
 	strategies map[string]AcquireStrategy
 }
 
@@ -17,9 +23,9 @@ var (
 	ErrVarTypeNotSupported = errors.New("unsupported variable type")
 )
 
-// NewStrategyRegistry creates a new registry with default strategies
-func NewStrategyRegistry() *StrategyRegistry {
-	registry := &StrategyRegistry{
+// NewDefaultStrategyRegistry creates a new registry with default strategies
+func NewDefaultStrategyRegistry() *DefaultStrategyRegistry {
+	registry := &DefaultStrategyRegistry{
 		strategies: make(map[string]AcquireStrategy),
 	}
 
@@ -34,12 +40,12 @@ func NewStrategyRegistry() *StrategyRegistry {
 }
 
 // Register adds or replaces a strategy for a given type name
-func (r *StrategyRegistry) Register(typeName string, strategy AcquireStrategy) {
+func (r *DefaultStrategyRegistry) Register(typeName string, strategy AcquireStrategy) {
 	r.strategies[strings.ToUpper(typeName)] = strategy
 }
 
 // Get retrieves a strategy by type name
-func (r *StrategyRegistry) Get(typeName string) (AcquireStrategy, error) {
+func (r *DefaultStrategyRegistry) Get(typeName string) (AcquireStrategy, error) {
 	key := strings.ToUpper(typeName)
 	strategy, ok := r.strategies[key]
 	if !ok {
