@@ -62,6 +62,7 @@ var charsetPools = map[string]string{
 func (s *GeneratedStrategy) Acquire(varName string, defaultSpec *string) (string, error) {
 	// TODO check defaultSpec NOT NIL
 	if val, exists := s.env.GetEnv(varName); exists == true {
+		s.prompter.Info("Not overriding already existing environment variable " + varName)
 		return val, nil
 	}
 
@@ -129,6 +130,7 @@ func NewIPStrategy() *IPStrategy {
 
 func (s *IPStrategy) Acquire(varName string, _ *string) (string, error) {
 	if val, exists := s.env.GetEnv(varName); exists == true {
+		s.prompter.Info("Not overriding already existing environment variable " + varName)
 		return val, nil
 	}
 
@@ -166,6 +168,7 @@ func NewStringStrategy() *StringStrategy {
 func (s *StringStrategy) Acquire(varName string, _ *string) (string, error) {
 	// Check if already set in environment
 	if val, exists := s.env.GetEnv(varName); exists == true {
+		s.prompter.Info("Not overriding already existing environment variable " + varName)
 		return val, nil
 	}
 
@@ -198,6 +201,7 @@ func NewPathStrategy() *PathStrategy {
 
 func (s *PathStrategy) Acquire(varName string, _ *string) (string, error) {
 	if val, exists := s.env.GetEnv(varName); exists == true {
+		s.prompter.Info("Not overriding already existing environment variable " + varName)
 		return val, nil
 	}
 

@@ -13,7 +13,7 @@ help:
 
 # [🔧 APP] Interactive script that creates a `.env.<timestamp>` file
 configure:
-    if [  -f ".env" ]; then {{uv}} run --env-file=.env -m scripts.configuration.configure; else {{uv}} run -m scripts.configuration.configure; fi
+    go run . --log-level debug configure
 
 # [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
 start *services="":
