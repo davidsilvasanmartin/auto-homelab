@@ -76,7 +76,7 @@ func (r *DefaultResticClient) execRestic(args ...string) error {
 // Init initializes a new restic repository if it doesn't exist
 func (r *DefaultResticClient) Init() error {
 	// First check if repository exists by running snapshots
-	err := r.Snapshots()
+	err := r.execRestic("snapshots")
 	if err == nil {
 		// Repository exists
 		return nil

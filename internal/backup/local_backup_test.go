@@ -7,29 +7,6 @@ import (
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
 
-type mockCommands struct {
-	execShellCommand func(cmd string) system.RunnableCommand
-}
-
-func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCommand { return nil }
-func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
-	if m.execShellCommand != nil {
-		return m.execShellCommand(cmd)
-	}
-	return nil
-}
-
-type mockRunnableCommand struct {
-	runFunc func() error
-}
-
-func (m *mockRunnableCommand) Run() error {
-	if m.runFunc != nil {
-		return m.runFunc()
-	}
-	return nil
-}
-
 type mockDockerRunner struct {
 	containerExec                      func(containerName string, cmd string) error
 	waitUntilContainerExecIsSuccessful func(containerName string, cmd string) error
@@ -52,15 +29,6 @@ func (m *mockDockerRunner) ContainerExec(containerName string, cmd string) error
 		return m.containerExec(containerName, cmd)
 	}
 	return nil
-}
-
-type mockTextFormatter struct{}
-
-func (m *mockTextFormatter) WrapLines(_ string, _ uint) []string                     { return nil }
-func (m *mockTextFormatter) FormatDotenvKeyValue(_ string, _ string) (string, error) { return "", nil }
-func (m *mockTextFormatter) QuoteForPOSIXShell(key string) string {
-	// Mock the functionality of this function. We need to keep this into account in individual tests
-	return "'" + key + "'"
 }
 
 func TestDirectoryLocalBackup_Run_Success(t *testing.T) {
