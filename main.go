@@ -20,6 +20,9 @@ import (
 //  - See if there is a way to use an env variable to fix restic's `Host`, because it changes from time to time,
 //      even for the same device
 //  - Consider backing up the current .env folder automatically (the backup is going to be encrypted)
+//  - Review and update all the documentation including the main README.md
+//  - Completely remove Python and all related files
+//  - Add the "user" directive to all Docker Compose services so that they don't create files as root on the host system
 
 func main() {
 	// Load .env file from the current working directory
