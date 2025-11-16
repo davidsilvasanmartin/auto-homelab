@@ -384,6 +384,8 @@ services:
       ND_LOGLEVEL: debug
     volumes:
       - ${HOMELAB_NAVIDROME_DATA_PATH}:/data
+      # If not on your home directory, this folder will have to be shared with Docker. Go to
+      # "Docker -> Preferences... -> Resources -> File Sharing" in Docker desktop and add the folder
       - ${HOMELAB_NAVIDROME_MUSIC_PATH}:/music:ro
     labels:
       - "traefik.enable=true"
