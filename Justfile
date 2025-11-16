@@ -64,7 +64,6 @@ dev-test-no-cache:
 dev-test-cover:
     go test ./... -cover
 
-# TODO commands for bootstrapping the Python project? As in, installing dependencies for the first time. uv something ??
 # [🧪 DEV] Add dependencies with uv. Example: `just dev-add "requests>=24.8,<25" pandas`
 dev-add +pkgs:
     {{uv}} add {{pkgs}}
