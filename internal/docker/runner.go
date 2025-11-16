@@ -57,12 +57,12 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 		return err
 	}
 
-	// Set UID and GID environment variables for docker compose
-	// These are used by the user: directive in docker-compose.yml
+	// Set UID and GID environment variables for docker compose .These are used by the user: directive in
+	// docker-compose.yml. Note that these variables are NOT needed for "docker compose exec" commands because
+	// those commands are executed on already running containers.
 	uid := os.Getuid()
 	gid := os.Getgid()
 
-	// Build the docker command with environment variables
 	var cmdParts []string
 	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_UID=%d", uid))
 	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_GID=%d", gid))
