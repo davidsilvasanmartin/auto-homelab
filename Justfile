@@ -32,6 +32,10 @@ backup-cloud:
 backup-cloud-list:
     go run . --log-level debug backup cloud list
 
+# [🔧 APP] Restores the cloud backup to a target directory
+backup-cloud-restore targetDir:
+    go run . --log-level debug backup cloud restore {{targetDir}}
+
 # [🔧 APP] Restores the paperless-ngx data
 restore-paperless:
     ./scripts-shell/restore_paperless.sh

@@ -102,6 +102,10 @@ func (c *CloudBackup) Restore(targetDir string) error {
 	slog.Info("Restoring latest snapshot", "targetDir", targetDir)
 
 	// Ensure target directory exists
+	targetDir, err := c.files.GetAbsPath(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to convert target directory to an absolute path: %w", err)
+	}
 	if err := c.files.CreateDirIfNotExists(targetDir); err != nil {
 		return fmt.Errorf("failed to create target directory: %w", err)
 	}

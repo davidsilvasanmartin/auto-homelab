@@ -525,6 +525,45 @@ func TestCloudBackup_Restore_Success(t *testing.T) {
 	}
 }
 
+func TestCloudBackup_Restore_GetAbsPathError(t *testing.T) {
+	expectedErr := errors.New("get abs path failed")
+	createDirCalled := false
+	restoreCalled := false
+	cloudBackup := &CloudBackup{
+		client: &mockResticClient{
+			restoreFunc: func(targetDir string) error {
+				restoreCalled = true
+				return nil
+			},
+		},
+		files: &mockFilesHandler{
+			getAbsPath: func(path string) (string, error) {
+				return "", expectedErr
+			},
+			createDirIfNotExists: func(path string) error {
+				createDirCalled = true
+				return nil
+			},
+		},
+		config: ResticConfig{},
+	}
+
+	err := cloudBackup.Restore("/restore/target")
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error to wrap %v, got: %v", expectedErr, err)
+	}
+	if createDirCalled {
+		t.Error("expected CreateDir NOT to be called when GetAbsPath fails")
+	}
+	if restoreCalled {
+		t.Error("expected Restore NOT to be called when GetAbsPath fails")
+	}
+}
+
 func TestCloudBackup_Restore_CreateDirError(t *testing.T) {
 	expectedErr := errors.New("create dir failed")
 	restoreCalled := false

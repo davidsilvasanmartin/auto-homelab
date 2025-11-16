@@ -15,6 +15,8 @@ import (
 //  - Unifying terminology for env/configuration. In this project, we call "configuration" to the set of environment
 //      vars that Docker compose uses. There are some naming and concept clashes between the "config" package, the
 //      Viper config at dotenv/loader.go, and the code at system/env.go
+//  - At the moment, stdout is being used both for showing information to the user and for logs. This can be confusing
+//      sometimes. Consider logging to a file or something similar.
 
 func main() {
 	// Load .env file from the current working directory

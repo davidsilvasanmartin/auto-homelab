@@ -6,6 +6,7 @@ type mockFilesHandler struct {
 	createDirIfNotExists func(path string) error
 	ensureDirExists      func(path string) error
 	copyDir              func(srcPath string, dstPath string) error
+	getAbsPath           func(path string) (string, error)
 }
 
 func (m *mockFilesHandler) CreateDirIfNotExists(path string) error {
@@ -30,7 +31,12 @@ func (m *mockFilesHandler) CopyDir(srcPath string, dstPath string) error {
 }
 func (m *mockFilesHandler) Getwd() (dir string, err error)           { return "", nil }
 func (m *mockFilesHandler) WriteFile(path string, data []byte) error { return nil }
-func (m *mockFilesHandler) GetAbsPath(path string) (string, error)   { return "", nil }
+func (m *mockFilesHandler) GetAbsPath(path string) (string, error) {
+	if m.getAbsPath != nil {
+		return m.getAbsPath(path)
+	}
+	return path, nil
+}
 
 type mockTextFormatter struct{}
 
