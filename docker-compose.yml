@@ -379,8 +379,6 @@ services:
       homelab_network:
         ipv4_address: ${HOMELAB_NAVIDROME_IP}
     user: ${HOMELAB_GENERAL_UID}:${HOMELAB_GENERAL_GID} # should be owner of volumes
-#    ports:
-#      - "4533:4533"
     restart: unless-stopped
     environment:
       ND_LOGLEVEL: debug
