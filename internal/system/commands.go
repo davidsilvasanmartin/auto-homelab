@@ -25,6 +25,9 @@ func NewDefaultCommands() *DefaultCommands {
 }
 
 func (s *DefaultCommands) ExecCommand(name string, arg ...string) RunnableCommand {
+	// TODO we are often logging passwords here. For example, run the "cloud backup list" command to see it.
+	//  We should look into redacting passwords. Look at Navidrome's approach:
+	//  https://github.com/navidrome/navidrome/blob/395a36e10f2d3f4af8cccbfa81b0da1e556a0d36/log/log.go#L24
 	slog.Debug("Executing command", "command", name, "arg", arg)
 	return s.stdlib.ExecCommand(name, arg...)
 }

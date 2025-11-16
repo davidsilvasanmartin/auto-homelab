@@ -9,6 +9,13 @@ import (
 	"github.com/davidsilvasanmartin/auto-homelab/internal/dotenv"
 )
 
+// TODO
+//  - Redacting passwords in logs
+//  - Unifying logs (the ones from dotenv/loader.go come in a different format)
+//  - Unifying terminology for env/configuration. In this project, we call "configuration" to the set of environment
+//      vars that Docker compose uses. There are some naming and concept clashes between the "config" package, the
+//      Viper config at dotenv/loader.go, and the code at system/env.go
+
 func main() {
 	// Load .env file from the current working directory
 	// Variables are available for all Cobra commands
