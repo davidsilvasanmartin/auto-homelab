@@ -13,6 +13,10 @@ var (
 	mu            sync.RWMutex
 )
 
+// See the following:
+//  https://github.com/spf13/viper?tab=readme-ov-file#should-viper-be-a-global-singleton-or-passed-around
+//  https://github.com/spf13/viper?tab=readme-ov-file#is-it-safe-to-concurrently-read-and-write-to-a-viper-instance
+
 // GetViper returns the Viper instance loaded by LoadDotEnv.
 // Returns nil if LoadDotEnv has not been called or if loading failed.
 func GetViper() *viper.Viper {

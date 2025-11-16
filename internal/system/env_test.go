@@ -5,67 +5,85 @@ import (
 	"log"
 	"strings"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
-type mockEnvLookup struct {
-	lookupEnvFunc func(key string) (string, bool)
-}
-
-func (m *mockEnvLookup) lookupEnv(key string) (string, bool) {
-	if m.lookupEnvFunc != nil {
-		return m.lookupEnvFunc(key)
-	}
-	return "", false
-}
-
-func TestDefaultEnv_GetEnv_ReturnsLookupEnv(t *testing.T) {
+func TestDefaultEnv_GetEnv_ReturnsValueFromViper(t *testing.T) {
 	value := "my_value"
-	exists := true
-	mock := &mockEnvLookup{
-		lookupEnvFunc: func(key string) (string, bool) {
-			return value, exists
-		},
+	varName := "DB_URL"
+	v := viper.New()
+	v.Set(varName, value)
+	env := &DefaultEnv{
+		ViperConfig: func() *viper.Viper { return v },
 	}
-	env := &DefaultEnv{LookupEnv: mock.lookupEnv}
 
-	gotValue, gotExists := env.GetEnv("DB_URL")
+	gotValue, gotExists := env.GetEnv(varName)
 
-	if gotExists != exists {
-		t.Fatalf("expected exists to be %v, got %v", exists, gotExists)
+	if !gotExists {
+		t.Fatalf("expected exists to be true, got false")
 	}
 	if gotValue != value {
 		t.Errorf("expected var value %q, got %q", value, gotValue)
 	}
 }
 
+func TestDefaultEnv_GetEnv_VariableNotSet(t *testing.T) {
+	varName := "NONEXISTENT_VAR"
+	v := viper.New()
+	env := &DefaultEnv{
+		ViperConfig: func() *viper.Viper { return v },
+	}
+
+	gotValue, gotExists := env.GetEnv(varName)
+
+	if gotExists {
+		t.Fatalf("expected exists to be false, got true")
+	}
+	if gotValue != "" {
+		t.Errorf("expected empty value when variable doesn't exist, got %q", gotValue)
+	}
+}
+
+func TestDefaultEnv_GetEnv_PanicsWhenViperConfigIsNil(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic when ViperConfig is nil, but did not panic")
+		}
+	}()
+
+	env := &DefaultEnv{
+		ViperConfig: nil,
+	}
+
+	env.GetEnv("SOME_VAR")
+}
+
 func TestDefaultEnv_GetRequiredEnv_Success(t *testing.T) {
 	varValue := "localhost:5432/db"
-	mock := &mockEnvLookup{
-		lookupEnvFunc: func(key string) (string, bool) {
-			return varValue, true
-		},
+	varName := "DB_URL"
+	v := viper.New()
+	v.Set(varName, varValue)
+	env := &DefaultEnv{
+		ViperConfig: func() *viper.Viper { return v },
 	}
-	env := &DefaultEnv{LookupEnv: mock.lookupEnv}
 
-	obtainedValue, err := env.GetRequiredEnv("DB_URL")
+	gotValue, err := env.GetRequiredEnv(varName)
 
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if obtainedValue != varValue {
-		t.Errorf("expected varValue %q, got %q", varValue, obtainedValue)
+	if gotValue != varValue {
+		t.Errorf("expected varValue %q, got %q", varValue, gotValue)
 	}
 }
 
 func TestDefaultEnv_GetRequiredEnv_NotFound(t *testing.T) {
 	varName := "MISSING_VAR"
-	mock := &mockEnvLookup{
-		lookupEnvFunc: func(key string) (string, bool) {
-			// Simulate env variable not being set
-			return "", false
-		},
+	v := viper.New()
+	env := &DefaultEnv{
+		ViperConfig: func() *viper.Viper { return v },
 	}
-	env := &DefaultEnv{LookupEnv: mock.lookupEnv}
 
 	_, err := env.GetRequiredEnv(varName)
 
@@ -81,14 +99,14 @@ func TestDefaultEnv_GetRequiredEnv_NotFound(t *testing.T) {
 }
 
 func TestDefaultEnv_GetRequiredEnv_EmptyValue(t *testing.T) {
-	mock := &mockEnvLookup{
-		lookupEnvFunc: func(key string) (string, bool) {
-			return "", true
-		},
+	varName := "EMPTY_VAR"
+	v := viper.New()
+	v.Set(varName, "")
+	env := &DefaultEnv{
+		ViperConfig: func() *viper.Viper { return v },
 	}
-	env := &DefaultEnv{LookupEnv: mock.lookupEnv}
 
-	value, err := env.GetRequiredEnv("EMPTY_VAR")
+	value, err := env.GetRequiredEnv(varName)
 
 	if err != nil {
 		t.Errorf("expected no error when variable exists with empty value, got: %v", err)
