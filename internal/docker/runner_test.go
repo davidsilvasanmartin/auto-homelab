@@ -97,19 +97,6 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr || len(s) > len(substr) && containsHelper(s, substr)
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
-
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	var capturedCmd string
 	commands := &mockCommands{
