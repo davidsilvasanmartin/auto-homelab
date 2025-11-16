@@ -17,6 +17,8 @@ import (
 //      Viper config at dotenv/loader.go, and the code at system/env.go
 //  - At the moment, stdout is being used both for showing information to the user and for logs. This can be confusing
 //      sometimes. Consider logging to a file or something similar.
+//  - See if there is a way to use an env variable to fix restic's `Host`, because it changes from time to time,
+//      even for the same device
 
 func main() {
 	// Load .env file from the current working directory
