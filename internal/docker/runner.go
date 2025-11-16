@@ -50,8 +50,7 @@ func (r *SystemRunner) ComposeStop(services []string) error {
 }
 
 func (r *SystemRunner) executeComposeCommand(args ...string) error {
-	// TODO: I don't know whether the docker compose command will automatically reads the .env file,
-	//  or the env vars are passed to docker when we call ExecCommand() from Go
+	// The docker compose command will automatically read the .env file,
 	if err := r.files.EnsureFilesInWD("docker-compose.yml", ".env"); err != nil {
 		return err
 	}

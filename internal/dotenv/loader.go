@@ -3,13 +3,30 @@ package dotenv
 import (
 	"errors"
 	"log/slog"
-	"os"
+	"sync"
 
 	"github.com/spf13/viper"
 )
 
+var (
+	viperInstance *viper.Viper
+	mu            sync.RWMutex
+)
+
+// See the following:
+//  https://github.com/spf13/viper?tab=readme-ov-file#should-viper-be-a-global-singleton-or-passed-around
+//  https://github.com/spf13/viper?tab=readme-ov-file#is-it-safe-to-concurrently-read-and-write-to-a-viper-instance
+
+// GetViper returns the Viper instance loaded by LoadDotEnv.
+// Returns nil if LoadDotEnv has not been called or if loading failed.
+func GetViper() *viper.Viper {
+	mu.RLock()
+	defer mu.RUnlock()
+	return viperInstance
+}
+
 // LoadDotEnv loads the .env file from the current working directory.
-// It uses Viper to read the .env file and loads all variables into the environment.
+// It uses Viper to read the .env file and stores the configuration in a package-level Viper instance.
 // If the .env file is not found, it logs an info message and continues without error.
 // If the .env file is found and loaded successfully, it logs an info message.
 // Any other errors during loading are logged as warnings.
@@ -29,16 +46,11 @@ func LoadDotEnv() {
 		return
 	}
 
-	for key, value := range v.AllSettings() {
-		if strValue, ok := value.(string); ok {
-			if err := os.Setenv(key, strValue); err != nil {
-				slog.Warn("Failed to set environment variable from .env file",
-					"key", key,
-					"error", err.Error())
-			}
-		}
-	}
+	mu.Lock()
+	viperInstance = v
+	mu.Unlock()
 
+	// TODO this slog Info call is using a different format than the rest of the app
 	slog.Info("Successfully loaded .env file from current directory",
 		"file", v.ConfigFileUsed())
 }

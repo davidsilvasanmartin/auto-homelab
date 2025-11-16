@@ -1,35 +1,37 @@
 # Backups
 
-Examples of running cloud backup with the `cloud_backup.py` script:
+## Cloud Backups
+
+Examples of running cloud backup with the Go application:
 
 ``` bash
-   # Run a full backup
-   python cloud_backup.py --command backup
-   
+   # Run a full backup (init, backup, prune)
+   go run . backup cloud
+
    # Run specific commands
-   python cloud_backup.py --command init    # Initialize repository
-   python cloud_backup.py --command check   # Check repository integrity
-   python cloud_backup.py --command list    # List all snapshots
-   python cloud_backup.py --command prune   # Prune old backups
-   # Restore the full backup into a local directory
-   python cloud_backup.py --command restore --restore-dir ./restore
+   go run . backup cloud init              # Initialize repository
+   go run . backup cloud check             # Check repository integrity
+   go run . backup cloud list              # List all snapshots
+   go run . backup cloud prune             # Prune old backups
+   go run . backup cloud restore ./restore # Restore to a local directory
+   go run . backup cloud ls-files <snapshot-id>  # List files in a snapshot
 ```
 
 # How Restic and Backblaze B2 Backups Work
 
-Let me explain what's happening in the `cloud-backup.py` script and how the backup process works with restic and
+Let me explain what's happening in the cloud backup implementation and how the backup process works with restic and
 Backblaze B2:
 
 ## Overview of the Backup Process
 
-1. **What the script does**: The script is a wrapper around the `restic` command-line tool, which handles the actual
-   backup operations. It provides a Python interface to manage the backup process.
+1. **What the application does**: The Go application is a wrapper around the `restic` command-line tool, which handles the actual
+   backup operations. It provides a clean interface to manage the backup process.
 
 2. **Where the backups are stored**: Backups are stored directly in Backblaze B2 cloud storage. There is no local copy
    kept by default (beyond your original files).
 
 3. **How Backblaze connection works**: The connection to Backblaze B2 is handled entirely by restic itself, not by the
-   Python script.
+   Go application.
 
 ## Connection to Backblaze B2
 
@@ -38,14 +40,11 @@ The reason you don't see explicit code for the Backblaze connection is because:
 1. **Restic handles the connection**: Restic has built-in support for multiple cloud storage providers, including
    Backblaze B2.
 
-2. **Authentication via environment variables**: The script sets these environment variables that restic uses:
-
-```python
-self.env["RESTIC_REPOSITORY"] = self.repository
-self.env["AWS_ACCESS_KEY_ID"] = self.b2_key_id
-self.env["AWS_SECRET_ACCESS_KEY"] = self.b2_application_key
-self.env["RESTIC_PASSWORD"] = self.restic_password
-```
+2. **Authentication via environment variables**: The application sets these environment variables that restic uses:
+   - `RESTIC_REPOSITORY`: The repository URL (e.g., `b2:bucket-name:path/prefix`)
+   - `B2_ACCOUNT_ID`: Your Backblaze B2 key ID
+   - `B2_ACCOUNT_KEY`: Your Backblaze B2 application key
+   - `RESTIC_PASSWORD`: The encryption password for your restic repository
 
 3. **Repository URL format**: The `RESTIC_REPOSITORY` variable uses a special URL format that tells restic which backend
    to use. For Backblaze B2, it's:
@@ -78,23 +77,6 @@ Restic creates several special files in your B2 bucket:
    blocks, and metadata.
 
 2. **Snapshots**: Each time you run a backup, restic creates a new snapshot referencing the data blocks for that backup.
-
-## To Restore Files
-
-If you need to restore files from Backblaze, you would use restic commands like:
-
-```shell script
-# Restore the latest snapshot to a specific directory
-restic restore latest --target /path/to/restore/directory
-
-# List snapshots
-restic snapshots
-
-# Restore a specific snapshot
-restic restore <snapshot-id> --target /path/to/restore/directory
-```
-
-The script could be extended to include restore functionality as well.
 
 ## Local Cache
 

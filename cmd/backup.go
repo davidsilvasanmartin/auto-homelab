@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/backup"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
@@ -15,6 +16,14 @@ func init() {
 	rootCmd.AddCommand(backupCmd)
 	backupCmd.AddCommand(backupLocalCmd)
 	backupCmd.AddCommand(backupCloudCmd)
+
+	// Add cloud backup subcommands
+	backupCloudCmd.AddCommand(backupCloudInitCmd)
+	backupCloudCmd.AddCommand(backupCloudCheckCmd)
+	backupCloudCmd.AddCommand(backupCloudListCmd)
+	backupCloudCmd.AddCommand(backupCloudPruneCmd)
+	backupCloudCmd.AddCommand(backupCloudRestoreCmd)
+	backupCloudCmd.AddCommand(backupCloudListFilesCmd)
 }
 
 var backupCmd = &cobra.Command{
@@ -39,10 +48,110 @@ var backupLocalCmd = &cobra.Command{
 
 var backupCloudCmd = &cobra.Command{
 	Use:   "cloud",
-	Short: "Sync the local backup to the cloud",
-	Long:  "Syncs the local backup to the configured cloud bucket. Assumes a local backup exists.",
-	Run: func(cmd *cobra.Command, args []string) {
-		slog.Info("Syncing backup to cloud...")
+	Short: "Manage cloud backups using restic and Backblaze B2",
+	Long:  "Commands to manage cloud backups. Run without subcommands to perform a full backup (init, backup, prune).",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		return cloudBackup.RunFullBackup()
+	},
+}
+
+var backupCloudInitCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize the cloud backup repository",
+	Long:  "Initializes a new restic repository in Backblaze B2 if it doesn't already exist.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		return cloudBackup.Init()
+	},
+}
+
+var backupCloudCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check cloud backup repository integrity",
+	Long:  "Verifies the integrity of the cloud backup repository.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		return cloudBackup.Check()
+	},
+}
+
+var backupCloudListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all cloud backup snapshots",
+	Long:  "Lists all snapshots in the cloud backup repository.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		return cloudBackup.ListSnapshots()
+	},
+}
+
+var backupCloudPruneCmd = &cobra.Command{
+	Use:   "prune",
+	Short: "Remove old cloud backup snapshots",
+	Long:  "Removes old snapshots according to the configured retention policy.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		return cloudBackup.Prune()
+	},
+}
+
+var backupCloudRestoreCmd = &cobra.Command{
+	Use:   "restore [target-directory]",
+	Short: "Restore the latest cloud backup snapshot",
+	Long:  "Restores the latest snapshot from the cloud backup to the specified directory.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		targetDir := args[0]
+		return cloudBackup.Restore(targetDir)
+	},
+}
+
+var backupCloudListFilesCmd = &cobra.Command{
+	Use:   "ls-files [snapshot-id]",
+	Short: "List files in a specific cloud backup snapshot",
+	Long:  "Lists all files contained in a specific snapshot.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		env := system.NewDefaultEnv()
+		config, err := getCloudBackupConfig(env)
+		if err != nil {
+			return err
+		}
+		cloudBackup := backup.NewCloudBackup(config)
+		snapshotID := args[0]
+		return cloudBackup.ListFiles(snapshotID)
 	},
 }
 
@@ -176,4 +285,51 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 	))
 
 	return localBackupList, nil
+}
+
+// getCloudBackupConfig loads cloud backup configuration from environment variables
+func getCloudBackupConfig(env system.Env) (backup.ResticConfig, error) {
+	repositoryURL, err := env.GetRequiredEnv("HOMELAB_BACKUP_RESTIC_REPOSITORY")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	b2KeyID, err := env.GetRequiredEnv("HOMELAB_BACKUP_B2_KEY_ID")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	b2ApplicationKey, err := env.GetRequiredEnv("HOMELAB_BACKUP_B2_APPLICATION_KEY")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	resticPassword, err := env.GetRequiredEnv("HOMELAB_BACKUP_RESTIC_PASSWORD")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	backupPath, err := env.GetRequiredEnv("HOMELAB_BACKUP_PATH")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	retentionDaysStr, err := env.GetRequiredEnv("HOMELAB_BACKUP_RETENTION_DAYS")
+	if err != nil {
+		return backup.ResticConfig{}, err
+	}
+
+	retentionDays, err := strconv.Atoi(retentionDaysStr)
+	if err != nil {
+		return backup.ResticConfig{}, fmt.Errorf("invalid retention days value: %w", err)
+	}
+
+	return backup.ResticConfig{
+		RepositoryURL:    repositoryURL,
+		B2KeyID:          b2KeyID,
+		B2ApplicationKey: b2ApplicationKey,
+		ResticPassword:   resticPassword,
+		BackupPath:       backupPath,
+		RetentionDays:    retentionDays,
+	}, nil
 }

@@ -3,7 +3,9 @@ package system
 import (
 	"errors"
 	"fmt"
-	"os"
+
+	"github.com/davidsilvasanmartin/auto-homelab/internal/dotenv"
+	"github.com/spf13/viper"
 )
 
 type Env interface {
@@ -19,22 +21,28 @@ var (
 )
 
 type DefaultEnv struct {
-	// LookupEnv wraps os.LookupEnv
-	LookupEnv func(key string) (string, bool)
+	// ViperConfig provides access to the Viper configuration loaded from .env file
+	ViperConfig func() *viper.Viper
 }
 
 func NewDefaultEnv() *DefaultEnv {
 	return &DefaultEnv{
-		LookupEnv: os.LookupEnv,
+		ViperConfig: dotenv.GetViper,
 	}
 }
 
 func (d *DefaultEnv) GetEnv(varName string) (string, bool) {
-	return d.LookupEnv(varName)
+	if d.ViperConfig == nil {
+		panic("viper config should be defined")
+	}
+	if v := d.ViperConfig(); v != nil && v.IsSet(varName) {
+		return v.GetString(varName), true
+	}
+	return "", false
 }
 
 func (d *DefaultEnv) GetRequiredEnv(varName string) (string, error) {
-	value, exists := d.LookupEnv(varName)
+	value, exists := d.GetEnv(varName)
 	if !exists {
 		return "", fmt.Errorf("%w: %q", ErrRequiredEnvNotFound, varName)
 	}
