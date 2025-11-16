@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
-	"github.com/google/go-cmp/cmp"
 )
 
 // mockRunnableCommand is a simple mock for RunnableCommand
@@ -73,14 +72,10 @@ func (t *mockTime) Sleep(d time.Duration) {
 }
 
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
-			// This creates a command but doesn't execute it
-			// When Run() is called, it just runs "echo" which is harmless and fast
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -95,22 +90,35 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// The command should now include UID/GID environment variables
+	expectedCmdPrefix := "HOMELAB_GENERAL_UID="
+	if len(capturedCmd) < len(expectedCmdPrefix) || capturedCmd[:len(expectedCmdPrefix)] != expectedCmdPrefix {
+		t.Errorf("expected command to start with %q, got %q", expectedCmdPrefix, capturedCmd)
 	}
-	expectedArgs := []string{"compose", "up", "-d"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	// Check that the command contains the docker compose up -d part
+	if !contains(capturedCmd, "docker compose up -d") {
+		t.Errorf("expected command to contain 'docker compose up -d', got %q", capturedCmd)
 	}
 }
 
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && s[len(s)-len(substr):] == substr || len(s) > len(substr) && containsHelper(s, substr)
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -125,22 +133,20 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// Check that the command contains UID/GID and the service name
+	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
+		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
 	}
-	expectedArgs := []string{"compose", "up", "-d", "service"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	if !contains(capturedCmd, "docker compose up -d service") {
+		t.Errorf("expected command to contain 'docker compose up -d service', got %q", capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -155,24 +161,20 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// Check that the command contains UID/GID and both service names
+	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
+		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
 	}
-	expectedArgs := []string{"compose", "up", "-d", "service1", "service2"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	if !contains(capturedCmd, "docker compose up -d service1 service2") {
+		t.Errorf("expected command to contain 'docker compose up -d service1 service2', got %q", capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
-			// This creates a command but doesn't execute it
-			// When Run() is called, it just runs "echo" which is harmless and fast
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -187,22 +189,20 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// Check that the command contains UID/GID and stop command
+	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
+		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
 	}
-	expectedArgs := []string{"compose", "stop"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	if !contains(capturedCmd, "docker compose stop") {
+		t.Errorf("expected command to contain 'docker compose stop', got %q", capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -217,22 +217,20 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// Check that the command contains UID/GID and the service name
+	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
+		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
 	}
-	expectedArgs := []string{"compose", "stop", "service"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	if !contains(capturedCmd, "docker compose stop service") {
+		t.Errorf("expected command to contain 'docker compose stop service', got %q", capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
@@ -247,12 +245,12 @@ func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
+	// Check that the command contains UID/GID and both service names
+	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
+		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
 	}
-	expectedArgs := []string{"compose", "stop", "service1", "service2"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	if !contains(capturedCmd, "docker compose stop service1 service2") {
+		t.Errorf("expected command to contain 'docker compose stop service1 service2', got %q", capturedCmd)
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
@@ -55,8 +57,20 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 		return err
 	}
 
-	allArgs := append([]string{"compose"}, args...)
-	cmd := r.commands.ExecCommand("docker", allArgs...)
+	// Set UID and GID environment variables for docker compose
+	// These are used by the user: directive in docker-compose.yml
+	uid := os.Getuid()
+	gid := os.Getgid()
+
+	// Build the docker command with environment variables
+	var cmdParts []string
+	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_UID=%d", uid))
+	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_GID=%d", gid))
+	cmdParts = append(cmdParts, "docker compose")
+	cmdParts = append(cmdParts, args...)
+
+	fullCmd := strings.Join(cmdParts, " ")
+	cmd := r.commands.ExecShellCommand(fullCmd)
 
 	return cmd.Run()
 }
