@@ -22,14 +22,10 @@ func (m *mockRunnableCommand) Run() error {
 }
 
 type mockCommands struct {
-	execCommand      func(name string, arg ...string) system.RunnableCommand
 	execShellCommand func(cmd string) system.RunnableCommand
 }
 
 func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCommand {
-	if m.execCommand != nil {
-		return m.execCommand(name, arg...)
-	}
 	return nil
 }
 func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
@@ -71,6 +67,10 @@ func (t *mockTime) Sleep(d time.Duration) {
 	// noop
 }
 
+func mockBuildDockerComposeCommandStr(cmd string) string {
+	return "docker compose " + cmd
+}
+
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	var capturedCmd string
 	commands := &mockCommands{
@@ -80,9 +80,10 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{})
@@ -90,14 +91,9 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// The command should now include UID/GID environment variables
-	expectedCmdPrefix := "HOMELAB_GENERAL_UID="
-	if len(capturedCmd) < len(expectedCmdPrefix) || capturedCmd[:len(expectedCmdPrefix)] != expectedCmdPrefix {
-		t.Errorf("expected command to start with %q, got %q", expectedCmdPrefix, capturedCmd)
-	}
-	// Check that the command contains the docker compose up -d part
-	if !contains(capturedCmd, "docker compose up -d") {
-		t.Errorf("expected command to contain 'docker compose up -d', got %q", capturedCmd)
+	expectedCmd := "docker compose up -d"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -123,9 +119,10 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{"service"})
@@ -133,12 +130,9 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// Check that the command contains UID/GID and the service name
-	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
-		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
-	}
-	if !contains(capturedCmd, "docker compose up -d service") {
-		t.Errorf("expected command to contain 'docker compose up -d service', got %q", capturedCmd)
+	expectedCmd := "docker compose up -d service"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -151,9 +145,10 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{"service1", "service2"})
@@ -161,12 +156,9 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// Check that the command contains UID/GID and both service names
-	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
-		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
-	}
-	if !contains(capturedCmd, "docker compose up -d service1 service2") {
-		t.Errorf("expected command to contain 'docker compose up -d service1 service2', got %q", capturedCmd)
+	expectedCmd := "docker compose up -d service1 service2"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -179,9 +171,10 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{})
@@ -189,12 +182,9 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// Check that the command contains UID/GID and stop command
-	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
-		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
-	}
-	if !contains(capturedCmd, "docker compose stop") {
-		t.Errorf("expected command to contain 'docker compose stop', got %q", capturedCmd)
+	expectedCmd := "docker compose stop"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -207,9 +197,10 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{"service"})
@@ -217,12 +208,9 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	// Check that the command contains UID/GID and the service name
-	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
-		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
-	}
-	if !contains(capturedCmd, "docker compose stop service") {
-		t.Errorf("expected command to contain 'docker compose stop service', got %q", capturedCmd)
+	expectedCmd := "docker compose stop service"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -235,9 +223,10 @@ func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{"service1", "service2"})
@@ -245,12 +234,9 @@ func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// Check that the command contains UID/GID and both service names
-	if !contains(capturedCmd, "HOMELAB_GENERAL_UID=") {
-		t.Errorf("expected command to contain HOMELAB_GENERAL_UID=, got %q", capturedCmd)
-	}
-	if !contains(capturedCmd, "docker compose stop service1 service2") {
-		t.Errorf("expected command to contain 'docker compose stop service1 service2', got %q", capturedCmd)
+	expectedCmd := "docker compose stop service1 service2"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -263,9 +249,10 @@ func TestSystemRunner_ContainerExec_ExecutesCorrectCommand(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ContainerExec("cont", "echo hello")
@@ -292,9 +279,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_SucceedsImmediately(t *
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -323,9 +311,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_SucceedsAfterRetries(t 
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -351,9 +340,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_ExhaustsRetries(t *test
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -382,9 +372,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_ExecutesCorrectCommand(
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")

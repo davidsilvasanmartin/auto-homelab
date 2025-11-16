@@ -373,7 +373,7 @@ services:
       - ${HOMELAB_FIREFLY_DB_DATA_PATH}:/var/lib/mysql
 
   navidrome:
-    image: deluan/navidrome:WHATEVER0.58.5
+    image: deluan/navidrome:0.58.5
     container_name: ${HOMELAB_NAVIDROME_CONTAINER_NAME}
     networks:
       homelab_network:

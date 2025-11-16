@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -25,17 +24,19 @@ var (
 
 // SystemRunner implements the Docker Runner using system commands calls
 type SystemRunner struct {
-	commands system.Commands
-	files    system.FilesHandler
-	time     system.Time
+	commands                     system.Commands
+	files                        system.FilesHandler
+	time                         system.Time
+	buildDockerComposeCommandStr func(cmd string) string
 }
 
 // NewSystemRunner creates a new Docker SystemRunner
 func NewSystemRunner() *SystemRunner {
 	return &SystemRunner{
-		commands: system.NewDefaultCommands(),
-		files:    system.NewDefaultFilesHandler(),
-		time:     system.NewDefaultTime(),
+		commands:                     system.NewDefaultCommands(),
+		files:                        system.NewDefaultFilesHandler(),
+		time:                         system.NewDefaultTime(),
+		buildDockerComposeCommandStr: BuildDockerComposeCommandStr,
 	}
 }
 
@@ -57,19 +58,7 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 		return err
 	}
 
-	// Set UID and GID environment variables for docker compose .These are used by the user: directive in
-	// docker-compose.yml. Note that these variables are NOT needed for "docker compose exec" commands because
-	// those commands are executed on already running containers.
-	uid := os.Getuid()
-	gid := os.Getgid()
-
-	var cmdParts []string
-	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_UID=%d", uid))
-	cmdParts = append(cmdParts, fmt.Sprintf("HOMELAB_GENERAL_GID=%d", gid))
-	cmdParts = append(cmdParts, "docker compose")
-	cmdParts = append(cmdParts, args...)
-
-	fullCmd := strings.Join(cmdParts, " ")
+	fullCmd := r.buildDockerComposeCommandStr(strings.Join(args, " "))
 	cmd := r.commands.ExecShellCommand(fullCmd)
 
 	return cmd.Run()
