@@ -1,4 +1,3 @@
-set dotenv-load := true
 
 uv := "uv"
 docker := "docker"
