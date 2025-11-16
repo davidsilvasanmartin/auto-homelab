@@ -224,6 +224,7 @@ func NewMariaDBLocalBackup(containerName, dbName, username, password, dstPath st
 			system.NewDefaultFilesHandler(),
 		),
 		dockerRunner:  docker.NewSystemRunner(),
+		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,
 		username:      username,

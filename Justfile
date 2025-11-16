@@ -1,6 +1,4 @@
-
 uv := "uv"
-docker := "docker"
 
 # [ HELP] List available commands. Gets executed when running `just` with no args
 default:
@@ -28,11 +26,11 @@ backup-local:
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:
-    {{uv}} run --env-file=.env -m scripts.backup.cloud --command=backup
+    go run . --log-level debug backup cloud
 
 # [🔧 APP] Lists the backup snapshots that exist on the configured cloud bucket
 backup-cloud-list:
-    {{uv}} run --env-file=.env -m scripts.backup.cloud --command=list
+    go run . --log-level debug backup cloud list
 
 # [🔧 APP] Restores the paperless-ngx data
 restore-paperless:
@@ -43,6 +41,7 @@ restore-immich:
     ./scripts-shell/restore_immich.sh
 
 # [🔧 APP] Fixes the permissions of directories used by the app (Mac or Linux)
+# TODO
 fix-perms:
     UID_CURR=$(id -u); \
     GID_CURR=$(id -g); \

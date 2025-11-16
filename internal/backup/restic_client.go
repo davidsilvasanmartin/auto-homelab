@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/davidsilvasanmartin/auto-homelab/internal/format"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
 )
 
@@ -36,15 +37,17 @@ type ResticConfig struct {
 
 // DefaultResticClient is the default implementation of ResticClient
 type DefaultResticClient struct {
-	commands system.Commands
-	config   ResticConfig
+	commands      system.Commands
+	textFormatter format.TextFormatter
+	config        ResticConfig
 }
 
 // NewDefaultResticClient creates a new restic client with the provided configuration
 func NewDefaultResticClient(config ResticConfig) *DefaultResticClient {
 	return &DefaultResticClient{
-		commands: system.NewDefaultCommands(),
-		config:   config,
+		commands:      system.NewDefaultCommands(),
+		textFormatter: format.NewDefaultTextFormatter(),
+		config:        config,
 	}
 }
 
@@ -54,36 +57,20 @@ func (r *DefaultResticClient) execRestic(args ...string) error {
 	// Build the command with environment variables
 	// We need to properly escape the values to prevent shell injection
 	envVars := fmt.Sprintf(
-		"RESTIC_REPOSITORY='%s' B2_ACCOUNT_ID='%s' B2_ACCOUNT_KEY='%s' RESTIC_PASSWORD='%s'",
-		r.escapeShellValue(r.config.RepositoryURL),
-		r.escapeShellValue(r.config.B2KeyID),
-		r.escapeShellValue(r.config.B2ApplicationKey),
-		r.escapeShellValue(r.config.ResticPassword),
+		"RESTIC_REPOSITORY=%s B2_ACCOUNT_ID=%s B2_ACCOUNT_KEY=%s RESTIC_PASSWORD=%s",
+		r.textFormatter.QuoteForPOSIXShell(r.config.RepositoryURL),
+		r.textFormatter.QuoteForPOSIXShell(r.config.B2KeyID),
+		r.textFormatter.QuoteForPOSIXShell(r.config.B2ApplicationKey),
+		r.textFormatter.QuoteForPOSIXShell(r.config.ResticPassword),
 	)
 
-	// Build the full command string
 	cmdStr := envVars + " restic"
 	for _, arg := range args {
-		cmdStr += " " + r.escapeShellValue(arg)
+		cmdStr += " " + arg
 	}
 
 	cmd := r.commands.ExecShellCommand(cmdStr)
 	return cmd.Run()
-}
-
-// escapeShellValue escapes a value for safe use in shell commands
-// This is a simple implementation - for production, consider using a library
-func (r *DefaultResticClient) escapeShellValue(value string) string {
-	// Replace single quotes with '\'' which ends the quote, adds an escaped quote, and starts a new quote
-	escaped := ""
-	for _, ch := range value {
-		if ch == '\'' {
-			escaped += `'\''`
-		} else {
-			escaped += string(ch)
-		}
-	}
-	return "'" + escaped + "'"
 }
 
 // Init initializes a new restic repository if it doesn't exist
@@ -134,5 +121,5 @@ func (r *DefaultResticClient) ListFiles(snapshotID string) error {
 
 // Restore restores the latest snapshot to a target directory
 func (r *DefaultResticClient) Restore(targetDir string) error {
-	return r.execRestic("restore", "latest", "--target", targetDir, "--verbose")
+	return r.execRestic("restore", "latest", "--target", r.textFormatter.QuoteForPOSIXShell(targetDir), "--verbose")
 }

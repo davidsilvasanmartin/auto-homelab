@@ -28,29 +28,24 @@ func NewCloudBackup(config ResticConfig) *CloudBackup {
 func (c *CloudBackup) RunFullBackup() error {
 	slog.Info("Starting full cloud backup workflow")
 
-	// Initialize repository if needed
 	slog.Info("Checking if repository exists...")
 	if err := c.client.Init(); err != nil {
 		return fmt.Errorf("failed to initialize repository: %w", err)
 	}
 	slog.Info("Repository ready")
 
-	// Validate backup path exists
 	if err := c.files.EnsureDirExists(c.config.BackupPath); err != nil {
 		return fmt.Errorf("backup path does not exist: %w", err)
 	}
 
-	// Create backup with timestamp tag
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	tags := []string{fmt.Sprintf("automatic-%s", timestamp)}
-
 	slog.Info("Creating backup", "path", c.config.BackupPath, "tags", tags)
 	if err := c.client.Backup(c.config.BackupPath, tags); err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 	slog.Info("Backup completed successfully")
 
-	// Prune old backups
 	keepWithin := fmt.Sprintf("%dd", c.config.RetentionDays)
 	slog.Info("Pruning old backups", "keepWithin", keepWithin)
 	if err := c.client.Forget(keepWithin, true); err != nil {

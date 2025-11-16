@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/backup"
 	"github.com/davidsilvasanmartin/auto-homelab/internal/docker"
@@ -318,8 +319,8 @@ func getCloudBackupConfig(env system.Env) (backup.ResticConfig, error) {
 		return backup.ResticConfig{}, err
 	}
 
-	var retentionDays int
-	if _, err := fmt.Sscanf(retentionDaysStr, "%d", &retentionDays); err != nil {
+	retentionDays, err := strconv.Atoi(retentionDaysStr)
+	if err != nil {
 		return backup.ResticConfig{}, fmt.Errorf("invalid retention days value: %w", err)
 	}
 

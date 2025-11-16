@@ -50,6 +50,7 @@ func LoadDotEnv() {
 	viperInstance = v
 	mu.Unlock()
 
+	// TODO this slog Info call is using a different format than the rest of the app
 	slog.Info("Successfully loaded .env file from current directory",
 		"file", v.ConfigFileUsed())
 }
