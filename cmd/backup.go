@@ -223,7 +223,7 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 	localBackupList.Add(backup.NewDirectoryLocalBackup(
 		paperlessExportPath,
 		filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
-		"docker compose exec -T paperless document_exporter -d ../export",
+		docker.BuildDockerComposeCommandStr("exec -T paperless document_exporter -d ../export"),
 	))
 
 	immichDBContainer, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_CONTAINER_NAME")

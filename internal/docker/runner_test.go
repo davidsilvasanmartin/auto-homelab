@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
-	"github.com/google/go-cmp/cmp"
 )
 
 // mockRunnableCommand is a simple mock for RunnableCommand
@@ -23,14 +22,10 @@ func (m *mockRunnableCommand) Run() error {
 }
 
 type mockCommands struct {
-	execCommand      func(name string, arg ...string) system.RunnableCommand
 	execShellCommand func(cmd string) system.RunnableCommand
 }
 
 func (m *mockCommands) ExecCommand(name string, arg ...string) system.RunnableCommand {
-	if m.execCommand != nil {
-		return m.execCommand(name, arg...)
-	}
 	return nil
 }
 func (m *mockCommands) ExecShellCommand(cmd string) system.RunnableCommand {
@@ -72,22 +67,23 @@ func (t *mockTime) Sleep(d time.Duration) {
 	// noop
 }
 
+func mockBuildDockerComposeCommandStr(cmd string) string {
+	return "docker compose " + cmd
+}
+
 func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
-			// This creates a command but doesn't execute it
-			// When Run() is called, it just runs "echo" which is harmless and fast
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{})
@@ -95,29 +91,25 @@ func TestSystemRunner_ComposeStart_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "up", "-d"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose up -d"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{"service"})
@@ -125,29 +117,25 @@ func TestSystemRunner_ComposeStart_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "up", "-d", "service"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose up -d service"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStart([]string{"service1", "service2"})
@@ -155,31 +143,25 @@ func TestSystemRunner_ComposeStart_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "up", "-d", "service1", "service2"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose up -d service1 service2"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
-			// This creates a command but doesn't execute it
-			// When Run() is called, it just runs "echo" which is harmless and fast
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{})
@@ -187,29 +169,25 @@ func TestSystemRunner_ComposeStop_NoServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "stop"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose stop"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{"service"})
@@ -217,29 +195,25 @@ func TestSystemRunner_ComposeStop_OneService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "stop", "service"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose stop service"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
 func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
-	var capturedName string
-	var capturedArgs []string
+	var capturedCmd string
 	commands := &mockCommands{
-		execCommand: func(name string, arg ...string) system.RunnableCommand {
-			capturedName = name
-			capturedArgs = arg
+		execShellCommand: func(cmd string) system.RunnableCommand {
+			capturedCmd = cmd
 			return &mockRunnableCommand{}
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ComposeStop([]string{"service1", "service2"})
@@ -247,12 +221,9 @@ func TestSystemRunner_ComposeStop_MultipleServices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if capturedName != "docker" {
-		t.Errorf("expected command name %q, got %q", "docker", capturedName)
-	}
-	expectedArgs := []string{"compose", "stop", "service1", "service2"}
-	if diff := cmp.Diff(expectedArgs, capturedArgs); diff != "" {
-		t.Errorf("args mismatch:\n%s", diff)
+	expectedCmd := "docker compose stop service1 service2"
+	if capturedCmd != expectedCmd {
+		t.Errorf("expected command to be %q, got %q", expectedCmd, capturedCmd)
 	}
 }
 
@@ -265,9 +236,10 @@ func TestSystemRunner_ContainerExec_ExecutesCorrectCommand(t *testing.T) {
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.ContainerExec("cont", "echo hello")
@@ -294,9 +266,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_SucceedsImmediately(t *
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -325,9 +298,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_SucceedsAfterRetries(t 
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -353,9 +327,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_ExhaustsRetries(t *test
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")
@@ -384,9 +359,10 @@ func TestSystemRunner_WaitUntilContainerExecIsSuccessful_ExecutesCorrectCommand(
 		},
 	}
 	runner := &SystemRunner{
-		commands: commands,
-		files:    &mockFiles{},
-		time:     &mockTime{},
+		commands:                     commands,
+		files:                        &mockFiles{},
+		time:                         &mockTime{},
+		buildDockerComposeCommandStr: mockBuildDockerComposeCommandStr,
 	}
 
 	err := runner.WaitUntilContainerExecIsSuccessful("test-container", "test-cmd")

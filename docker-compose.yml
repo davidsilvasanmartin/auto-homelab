@@ -281,36 +281,6 @@ services:
 #      POSTGRES_DB: ${LINKWARDEN_DB_DATABASE}
 #    restart: unless-stopped
 
-#  jellyfin:
-#    image: jellyfin/jellyfin:10.11.0-rc3
-#    container_name: ${MEDIA_CONTAINER_NAME}
-#    volumes:
-#      - ${MEDIA_CONFIG_PATH}:/config
-#      - ${MEDIA_CACHE_PATH}:/cache
-#      - type: bind
-#        source: ${MEDIA_MEDIA_1_PATH}
-#        target: /media
-#      # Optional - More media sources, which can be mounted in read-only fashion
-#      #- type: bind
-#      #  source: /path/to/media2
-#      #  target: /media2
-#      #  read_only: true
-#      # Optional - extra fonts to be used during transcoding with subtitle burn-in
-#      #- type: bind
-#      #  source: /path/to/fonts
-#      #  target: /usr/local/share/fonts/custom
-#      #  read_only: true
-#    restart: 'unless-stopped'
-#    # Optional - alternative address used for autodiscovery
-#    #environment:
-#    #  - JELLYFIN_PublishedServerUrl=http://example.com
-#    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
-#    #extra_hosts:
-#    #  - 'host.docker.internal:host-gateway'
-#    networks:
-#      homelab_network:
-#        ipv4_address: ${MEDIA_IP}
-
   portainer:
     # PORTAINER: see https://docs.portainer.io/start/install-ce/server/docker/linux
     image: portainer/portainer-ce:2.32.0
@@ -401,3 +371,24 @@ services:
       MYSQL_DATABASE: ${HOMELAB_FIREFLY_DB_DATABASE}
     volumes:
       - ${HOMELAB_FIREFLY_DB_DATA_PATH}:/var/lib/mysql
+
+  navidrome:
+    image: deluan/navidrome:0.58.5
+    container_name: ${HOMELAB_NAVIDROME_CONTAINER_NAME}
+    networks:
+      homelab_network:
+        ipv4_address: ${HOMELAB_NAVIDROME_IP}
+    user: ${HOMELAB_GENERAL_UID}:${HOMELAB_GENERAL_GID} # should be owner of volumes
+    restart: unless-stopped
+    environment:
+      ND_LOGLEVEL: debug
+    volumes:
+      - ${HOMELAB_NAVIDROME_DATA_PATH}:/data
+      - ${HOMELAB_NAVIDROME_MUSIC_PATH}:/music:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.navidrome.rule=Host(`navidrome.${HOMELAB_GENERAL_DOMAIN}`)"
+      - "traefik.http.routers.navidrome.entrypoints=websecure"
+      - "traefik.http.routers.navidrome.tls=true"
+      - "traefik.http.routers.navidrome.tls.certresolver=cloudflare"
+      - "traefik.http.services.navidrome.loadbalancer.server.port=4533"

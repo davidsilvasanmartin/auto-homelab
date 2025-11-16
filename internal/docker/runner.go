@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/davidsilvasanmartin/auto-homelab/internal/system"
@@ -23,17 +24,19 @@ var (
 
 // SystemRunner implements the Docker Runner using system commands calls
 type SystemRunner struct {
-	commands system.Commands
-	files    system.FilesHandler
-	time     system.Time
+	commands                     system.Commands
+	files                        system.FilesHandler
+	time                         system.Time
+	buildDockerComposeCommandStr func(cmd string) string
 }
 
 // NewSystemRunner creates a new Docker SystemRunner
 func NewSystemRunner() *SystemRunner {
 	return &SystemRunner{
-		commands: system.NewDefaultCommands(),
-		files:    system.NewDefaultFilesHandler(),
-		time:     system.NewDefaultTime(),
+		commands:                     system.NewDefaultCommands(),
+		files:                        system.NewDefaultFilesHandler(),
+		time:                         system.NewDefaultTime(),
+		buildDockerComposeCommandStr: BuildDockerComposeCommandStr,
 	}
 }
 
@@ -55,8 +58,8 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 		return err
 	}
 
-	allArgs := append([]string{"compose"}, args...)
-	cmd := r.commands.ExecCommand("docker", allArgs...)
+	fullCmd := r.buildDockerComposeCommandStr(strings.Join(args, " "))
+	cmd := r.commands.ExecShellCommand(fullCmd)
 
 	return cmd.Run()
 }

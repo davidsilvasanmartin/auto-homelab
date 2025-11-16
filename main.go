@@ -19,6 +19,7 @@ import (
 //      sometimes. Consider logging to a file or something similar.
 //  - See if there is a way to use an env variable to fix restic's `Host`, because it changes from time to time,
 //      even for the same device
+//  - Consider backing up the current .env folder automatically (the backup is going to be encrypted)
 
 func main() {
 	// Load .env file from the current working directory
