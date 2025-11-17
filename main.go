@@ -23,6 +23,11 @@ import (
 //  - Review and update all the documentation including the main README.md
 //  - Completely remove Python and all related files
 //  - Add the "user" directive to all Docker Compose services so that they don't create files as root on the host system
+//  - Write restoration scripts in Go
+//  - Update ALL versions
+//  - Recover uptime Kuma
+//  - Add monitoring (Prometheus + Grafana)
+//  - Add logging (Loki? Opensearch?)
 
 func main() {
 	// Load .env file from the current working directory
