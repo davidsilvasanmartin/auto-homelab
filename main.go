@@ -28,6 +28,9 @@ import (
 //  - Recover uptime Kuma
 //  - Add monitoring (Prometheus + Grafana)
 //  - Add logging (Loki? Opensearch?)
+//  - [Future] Modify local backup procedure so it does NOT duplicate data by copying over directories
+//  - [Future] Better secret management. Do not rely on .env.
+//  - [Future] Consider Ansible or Kubernetes to replace Docker Compose
 
 func main() {
 	// Load .env file from the current working directory
