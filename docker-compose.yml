@@ -159,16 +159,11 @@ services:
       - "traefik.http.services.paperless.loadbalancer.server.port=8000"
 
   immich:
-    # IMMICH: downloaded fromhttps://github.com/immich-app/immich/releases/download/v1.133.1/docker-compose.yml
-    # TODO !!! Frontend shows "Server offline", it has to be something related to the reverse proxy
-    # TODO regarding the above, see: https://github.com/immich-app/immich/issues/4611#issuecomment-1932479760
+    # IMMICH: downloaded from https://github.com/immich-app/immich/releases/download/v1.133.1/docker-compose.yml
     container_name: ${HOMELAB_IMMICH_WEB_CONTAINER_NAME}
-    image: ghcr.io/immich-app/immich-server:v1.133.1
-    # extends:
-    #   file: hwaccel.transcoding.yml
-    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    image: ghcr.io/immich-app/immich-server:v2.3.1
     volumes:
-      - ${HOMELAB_IMMICH_WEB_UPLOAD_PATH}:/usr/src/app/upload
+      - ${HOMELAB_IMMICH_WEB_UPLOAD_PATH}:/data
       - /etc/localtime:/etc/localtime:ro
     environment:
       # See all options at https://immich.app/docs/install/environment-variables/
@@ -199,12 +194,7 @@ services:
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
   immich-machine-learning:
     container_name: ${HOMELAB_IMMICH_ML_CONTAINER_NAME}
-    # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
-    # Example tag: ${IMMICH_VERSION:-release}-cuda
-    image: ghcr.io/immich-app/immich-machine-learning:v1.133.1
-    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
-    #   file: hwaccel.ml.yml
-    #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    image: ghcr.io/immich-app/immich-machine-learning:v2.3.1
     volumes:
       - ${HOMELAB_IMMICH_ML_CACHE_DATA_PATH}:/cache
     networks:
@@ -213,7 +203,7 @@ services:
     restart: unless-stopped
   immich-redis:
     container_name: ${HOMELAB_IMMICH_REDIS_CONTAINER_NAME}
-    image: docker.io/valkey/valkey:8-bookworm@sha256:ff21bc0f8194dc9c105b769aeabf9585fea6a8ed649c0781caeac5cb3c247884
+    image: docker.io/valkey/valkey:8@sha256:81db6d39e1bba3b3ff32bd3a1b19a6d69690f94a3954ec131277b9a26b95b3aa
     volumes:
       - ${HOMELAB_IMMICH_REDIS_DATA_PATH}:/data
     networks:
@@ -222,7 +212,7 @@ services:
     restart: unless-stopped
   immich-db:
     container_name: ${HOMELAB_IMMICH_DB_CONTAINER_NAME}
-    image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     environment:
       POSTGRES_PASSWORD: ${HOMELAB_IMMICH_DB_PASSWORD}
       POSTGRES_USER: ${HOMELAB_IMMICH_DB_USER}
