@@ -67,7 +67,10 @@ func (t *mockTime) Sleep(d time.Duration) {
 	// noop
 }
 
-func mockBuildDockerComposeCommandStr(cmd string) string {
+func mockBuildDockerComposeCommandStr(cmd string, dockerContext string) string {
+	if dockerContext != "" {
+		return "docker --context " + dockerContext + " compose " + cmd
+	}
 	return "docker compose " + cmd
 }
 

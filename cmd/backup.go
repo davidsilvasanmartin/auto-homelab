@@ -158,7 +158,7 @@ var backupCloudListFilesCmd = &cobra.Command{
 // startAllContainers starts all containers. Note that some containers (e.g., databases) need to be running in
 // order to perform the backup, because we need to run commands on them (e.g., exporting the database)
 func startAllContainers() error {
-	dockerRunner := docker.NewSystemRunner()
+	dockerRunner := docker.NewSystemRunner(GetDockerContext())
 	if err := dockerRunner.ComposeStart([]string{}); err != nil {
 		return fmt.Errorf("failed to start all containers: %w", err)
 	}
@@ -180,7 +180,7 @@ func runBackupLocal(files system.FilesHandler, env system.Env) error {
 	}
 
 	// Define backup operations
-	localBackupList, err := buildLocalBackupList(mainBackupDir, env)
+	localBackupList, err := buildLocalBackupList(mainBackupDir, env, GetDockerContext())
 	if err != nil {
 		return fmt.Errorf("failed to create backup operations: %w", err)
 	}
@@ -193,7 +193,7 @@ func runBackupLocal(files system.FilesHandler, env system.Env) error {
 	return nil
 }
 
-func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBackupList, error) {
+func buildLocalBackupList(mainBackupDir string, env system.Env, dockerContext string) (*backup.LocalBackupList, error) {
 	localBackupList := backup.NewLocalBackupList()
 
 	calibreLibraryPath, err := env.GetRequiredEnv("HOMELAB_CALIBRE_LIBRARY_PATH")
@@ -223,7 +223,7 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 	localBackupList.Add(backup.NewDirectoryLocalBackup(
 		paperlessExportPath,
 		filepath.Join(mainBackupDir, "paperless-ngx-webserver-export"),
-		docker.BuildDockerComposeCommandStr("exec -T paperless document_exporter -d ../export"),
+		docker.BuildDockerComposeCommandStr("exec -T paperless document_exporter -d ../export", dockerContext),
 	))
 
 	immichDBContainer, err := env.GetRequiredEnv("HOMELAB_IMMICH_DB_CONTAINER_NAME")
@@ -248,6 +248,7 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 		immichDBUser,
 		immichDBPassword,
 		filepath.Join(mainBackupDir, "immich-db"),
+		dockerContext,
 	))
 
 	immichUploadPath, err := env.GetRequiredEnv("HOMELAB_IMMICH_WEB_UPLOAD_PATH")
@@ -282,6 +283,7 @@ func buildLocalBackupList(mainBackupDir string, env system.Env) (*backup.LocalBa
 		fireflyDBUser,
 		fireflyDBPassword,
 		filepath.Join(mainBackupDir, "firefly-db"),
+		dockerContext,
 	))
 
 	return localBackupList, nil

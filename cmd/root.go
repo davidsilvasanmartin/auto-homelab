@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	logLevel string
+	logLevel      string
+	dockerContext string
 )
 
 var rootCmd = &cobra.Command{
@@ -59,6 +60,10 @@ func init() {
 		&logLevel, "log-level", "info",
 		"Set the logging level (debug, info, warn, error)",
 	)
+	rootCmd.PersistentFlags().StringVar(
+		&dockerContext, "docker-context", "",
+		"Docker context to use (e.g., desktop-linux). If empty, uses current context.",
+	)
 }
 
 func Execute() error {
@@ -67,4 +72,9 @@ func Execute() error {
 		return err
 	}
 	return nil
+}
+
+// GetDockerContext returns the docker context flag value
+func GetDockerContext() string {
+	return dockerContext
 }

@@ -17,7 +17,7 @@ var startCmd = &cobra.Command{
 	Short: "Start services (or all services if none specified)",
 	Long:  "Starts services in your homelab. If no service is provided, this would start all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		runner := docker.NewSystemRunner()
+		runner := docker.NewSystemRunner(GetDockerContext())
 		return startServices(runner, args...)
 	},
 }

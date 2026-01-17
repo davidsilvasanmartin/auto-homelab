@@ -27,15 +27,18 @@ type SystemRunner struct {
 	commands                     system.Commands
 	files                        system.FilesHandler
 	time                         system.Time
-	buildDockerComposeCommandStr func(cmd string) string
+	dockerContext                string
+	buildDockerComposeCommandStr func(cmd string, dockerContext string) string
 }
 
-// NewSystemRunner creates a new Docker SystemRunner
-func NewSystemRunner() *SystemRunner {
+// NewSystemRunner creates a new Docker SystemRunner with the specified Docker context.
+// If dockerContext is empty, the current Docker context will be used.
+func NewSystemRunner(dockerContext string) *SystemRunner {
 	return &SystemRunner{
 		commands:                     system.NewDefaultCommands(),
 		files:                        system.NewDefaultFilesHandler(),
 		time:                         system.NewDefaultTime(),
+		dockerContext:                dockerContext,
 		buildDockerComposeCommandStr: BuildDockerComposeCommandStr,
 	}
 }
@@ -58,14 +61,19 @@ func (r *SystemRunner) executeComposeCommand(args ...string) error {
 		return err
 	}
 
-	fullCmd := r.buildDockerComposeCommandStr(strings.Join(args, " "))
+	fullCmd := r.buildDockerComposeCommandStr(strings.Join(args, " "), r.dockerContext)
 	cmd := r.commands.ExecShellCommand(fullCmd)
 
 	return cmd.Run()
 }
 
 func (r *SystemRunner) ContainerExec(container string, cmd string) error {
-	fullCmd := fmt.Sprintf("docker container exec %s %s", container, cmd)
+	var fullCmd string
+	if r.dockerContext != "" {
+		fullCmd = fmt.Sprintf("docker --context %s container exec %s %s", r.dockerContext, container, cmd)
+	} else {
+		fullCmd = fmt.Sprintf("docker container exec %s %s", container, cmd)
+	}
 	systemCmd := r.commands.ExecShellCommand(fullCmd)
 	return systemCmd.Run()
 }

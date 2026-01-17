@@ -104,13 +104,13 @@ type PostgreSQLLocalBackup struct {
 }
 
 // NewPostgreSQLLocalBackup creates a new PostgreSQL backup instance
-func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath string) *PostgreSQLLocalBackup {
+func NewPostgreSQLLocalBackup(containerName, dbName, username, password, dstPath, dockerContext string) *PostgreSQLLocalBackup {
 	return &PostgreSQLLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
 			system.NewDefaultFilesHandler(),
 		),
-		dockerRunner:  docker.NewSystemRunner(),
+		dockerRunner:  docker.NewSystemRunner(dockerContext),
 		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,
@@ -161,13 +161,13 @@ type MySQLLocalBackup struct {
 }
 
 // NewMySQLLocalBackup creates a new MySQL backup instance
-func NewMySQLLocalBackup(containerName, dbName, username, password, dstPath string) *MySQLLocalBackup {
+func NewMySQLLocalBackup(containerName, dbName, username, password, dstPath, dockerContext string) *MySQLLocalBackup {
 	return &MySQLLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
 			system.NewDefaultFilesHandler(),
 		),
-		dockerRunner:  docker.NewSystemRunner(),
+		dockerRunner:  docker.NewSystemRunner(dockerContext),
 		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,
@@ -217,13 +217,13 @@ type MariaDBLocalBackup struct {
 }
 
 // NewMariaDBLocalBackup creates a new MariaDB backup instance
-func NewMariaDBLocalBackup(containerName, dbName, username, password, dstPath string) *MariaDBLocalBackup {
+func NewMariaDBLocalBackup(containerName, dbName, username, password, dstPath, dockerContext string) *MariaDBLocalBackup {
 	return &MariaDBLocalBackup{
 		baseLocalBackup: newBaseLocalBackup(
 			dstPath,
 			system.NewDefaultFilesHandler(),
 		),
-		dockerRunner:  docker.NewSystemRunner(),
+		dockerRunner:  docker.NewSystemRunner(dockerContext),
 		textFormatter: format.NewDefaultTextFormatter(),
 		containerName: containerName,
 		dbName:        dbName,

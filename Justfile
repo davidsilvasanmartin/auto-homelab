@@ -1,4 +1,7 @@
 uv := "uv"
+# Docker context to use (e.g., "desktop-linux"). Leave empty to use current context.
+# Usage: just docker_context=desktop-linux start
+docker_context := ""
 
 # [ HELP] List available commands. Gets executed when running `just` with no args
 default:
@@ -12,17 +15,17 @@ help:
 configure:
     go run . --log-level debug configure
 
-# [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre`
+# [🔧 APP] Starts a service, or all services if one is not specified. Example: `just start` // `just start calibre` // `just docker_context=desktop-linux start`
 start *services="":
-    go run . --log-level debug start {{services}}
+    go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} start {{services}}
 
-# [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre`
+# [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre` // `just docker_context=desktop-linux stop`
 stop *services="":
-    go run . --log-level debug stop {{services}}
+    go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} stop {{services}}
 
 # [🔧 APP] Creates a local backup of all services' data
 backup-local:
-    go run . --log-level debug backup local
+    go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} backup local
 
 # [🔧 APP] Syncs the local backup to the cloud. The `backup-local` must be ran first
 backup-cloud:

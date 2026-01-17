@@ -9,7 +9,7 @@ import (
 func TestBuildDockerComposeCommandStr_FormatIsCorrect(t *testing.T) {
 	cmd := "up -d --build service1 service2"
 
-	result := BuildDockerComposeCommandStr(cmd)
+	result := BuildDockerComposeCommandStr(cmd, "")
 
 	expectedUID := os.Getuid()
 	expectedGID := os.Getgid()
@@ -22,11 +22,24 @@ func TestBuildDockerComposeCommandStr_FormatIsCorrect(t *testing.T) {
 func TestBuildDockerComposeCommandStr_EmptyCommand(t *testing.T) {
 	cmd := ""
 
-	result := BuildDockerComposeCommandStr(cmd)
+	result := BuildDockerComposeCommandStr(cmd, "")
 
 	uid := os.Getuid()
 	gid := os.Getgid()
 	expectedCmd := fmt.Sprintf("HOMELAB_GENERAL_UID=%d HOMELAB_GENERAL_GID=%d docker compose ", uid, gid)
+	if result != expectedCmd {
+		t.Errorf("expected command %q, got %q", expectedCmd, result)
+	}
+}
+
+func TestBuildDockerComposeCommandStr_WithContext(t *testing.T) {
+	cmd := "up -d"
+
+	result := BuildDockerComposeCommandStr(cmd, "desktop-linux")
+
+	uid := os.Getuid()
+	gid := os.Getgid()
+	expectedCmd := fmt.Sprintf("HOMELAB_GENERAL_UID=%d HOMELAB_GENERAL_GID=%d docker --context desktop-linux compose %s", uid, gid, cmd)
 	if result != expectedCmd {
 		t.Errorf("expected command %q, got %q", expectedCmd, result)
 	}

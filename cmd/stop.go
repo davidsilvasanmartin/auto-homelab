@@ -16,7 +16,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stops services (or all services if none specified)",
 	Long:  "Stops services in your homelab. If no service is provided, this would stop all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dockerRunner := docker.NewSystemRunner()
+		dockerRunner := docker.NewSystemRunner(GetDockerContext())
 		return stopServices(dockerRunner, args...)
 	},
 }
