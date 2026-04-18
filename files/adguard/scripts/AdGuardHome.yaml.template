@@ -224,7 +224,9 @@ filters:
     name: HaGeZi's The World's Most Abused TLDs
     id: 1747493988
 whitelist_filters: []
-user_rules: []
+user_rules:
+  - '@@||f003.backblazeb2.com^$important'
+  - ""
 dhcp:
   enabled: false
   interface_name: ""
