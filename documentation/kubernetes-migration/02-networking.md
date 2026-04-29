@@ -848,3 +848,298 @@ and its subdomains. Anything directly under `davidsilva.dev` is invisible to it.
 | Service routing | Docker socket labels | `IngressRoute` CRDs per service |
 | Inter-service encryption | None (plain TCP on bridge network) | Istio mTLS (automatic) |
 | `--docker-context` flag | Required | Replaced by kubeconfig context |
+
+---
+
+## Kubernetes Gateway API
+
+### What it is (and is not)
+
+The Gateway API is a Kubernetes SIG-Network project that defines a set of standard CRDs for
+routing traffic into and within a cluster. It is **a specification, not an implementation**.
+Just as `Ingress` is an API object that a controller (Traefik, NGINX, etc.) implements, the
+Gateway API is a richer API that any conformant controller can implement.
+
+Core resources, all GA (`v1`) since Gateway API v1.0 (October 2023):
+
+| Resource | Purpose |
+|---|---|
+| `GatewayClass` | Declares which controller manages gateways of this class (one per controller) |
+| `Gateway` | Declares a listener (port, protocol, TLS) — analogous to a Traefik entrypoint |
+| `HTTPRoute` | Routing rules for HTTP/HTTPS traffic — replaces `Ingress` and `IngressRoute` |
+| `GRPCRoute` | Same for gRPC (GA in v1.1) |
+| `TCPRoute` / `TLSRoute` | Layer-4 routing (experimental) |
+| `ReferenceGrant` | Cross-namespace permission — lets an `HTTPRoute` in `homelab` reference a `Gateway` in `homelab-system` |
+
+The key shift from `Ingress` is role separation: the platform team owns the `Gateway` (which
+port, which TLS cert, which class), and the app team owns `HTTPRoute` objects in their own
+namespace. This is more expressive than `Ingress` and vendor-neutral unlike Traefik's
+`IngressRoute` CRD.
+
+---
+
+### What Gateway API replaces in this stack
+
+#### Ingress and IngressRoute → HTTPRoute
+
+`HTTPRoute` is the direct replacement for both the standard `Ingress` object and Traefik's
+`IngressRoute` CRD. It is more expressive (header-based routing, weight-based traffic
+splitting, request/response modification) and is maintained by Kubernetes SIG-Network rather
+than a specific vendor.
+
+```yaml
+# Before: Traefik IngressRoute CRD
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: immich
+  namespace: homelab
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`immich.homelab.davidsilva.dev`)
+      kind: Rule
+      services:
+        - name: immich
+          port: 2283
+  tls: {}
+```
+
+```yaml
+# After: standard HTTPRoute (Gateway API)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: immich
+  namespace: homelab
+spec:
+  parentRefs:
+    - name: homelab-gateway
+      namespace: homelab-system
+      sectionName: websecure
+  hostnames:
+    - immich.homelab.davidsilva.dev
+  rules:
+    - backendRefs:
+        - name: immich
+          port: 2283
+```
+
+The `parentRefs` field ties this route to a specific listener on a `Gateway` object.
+
+The `Gateway` itself (defined once, in `homelab-system`) replaces the per-service TLS
+configuration:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: homelab-gateway
+  namespace: homelab-system
+spec:
+  gatewayClassName: traefik           # or "istio", "cilium", etc.
+  listeners:
+    - name: websecure
+      port: 443
+      protocol: HTTPS
+      hostname: "*.homelab.davidsilva.dev"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: homelab-dot-davidsilva-dev-tls   # the cert-manager wildcard Secret
+    - name: web
+      port: 80
+      protocol: HTTP
+      hostname: "*.homelab.davidsilva.dev"
+      allowedRoutes:
+        namespaces:
+          from: All
+```
+
+And the `GatewayClass` is a one-time cluster-level declaration naming the controller:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: traefik
+spec:
+  controllerName: traefik.io/gateway-controller
+```
+
+---
+
+#### Does Gateway API replace Traefik?
+
+No. Traefik remains the **data plane** — it is the process that actually accepts connections,
+terminates TLS, and proxies requests. What changes is which API objects describe the routing
+rules. Instead of Traefik-native `IngressRoute` CRDs, you use standard `HTTPRoute` objects
+that Traefik's controller watches and translates into its internal configuration.
+
+Traefik v3 (released April 2024) ships full, stable Gateway API support. To enable it, set
+the `providers.kubernetesGateway.enabled=true` Helm value:
+
+```bash
+helm upgrade traefik traefik/traefik \
+  --namespace homelab-system \
+  --set providers.kubernetesGateway.enabled=true \
+  --set ports.web.hostPort=80 \
+  --set ports.websecure.hostPort=443 \
+  --set service.type=ClusterIP
+```
+
+Traefik then watches both `IngressRoute` (for backwards compatibility) and `HTTPRoute`
+simultaneously, so you can migrate routes one at a time.
+
+Other conformant implementations if you were to move away from Traefik: Envoy Gateway,
+Cilium, NGINX Gateway Fabric, Istio (for its ingress gateway). The `HTTPRoute` objects are
+portable across all of them.
+
+---
+
+#### Does Gateway API replace Istio?
+
+For **ingress routing** (external traffic into the cluster): Gateway API plus any
+implementation (Traefik, Envoy Gateway, etc.) fully replaces what Istio's own ingress
+gateway does.
+
+For the **service mesh** (east-west traffic between pods): Gateway API does not replace
+Istio. The mesh capabilities — mTLS between pods, `AuthorizationPolicy`, and per-request
+observability — are provided by the Istio control plane and Envoy sidecars, none of which
+are part of the Gateway API spec.
+
+#### GAMMA: Gateway API for Mesh Management and Administration
+
+The GAMMA initiative (now merged into the Gateway API project) extends `HTTPRoute` to also
+describe routing for **east-west** (service-to-service) traffic inside the cluster. Istio
+has implemented GAMMA since v1.16. With it, the same `HTTPRoute` CRD covers both
+ingress traffic (by referencing a `Gateway` as the parent) and mesh traffic (by referencing
+a `Service` as the parent):
+
+```yaml
+# Mesh HTTPRoute: controls traffic FROM any pod TO the paperless service
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: paperless-mesh
+  namespace: homelab
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: paperless          # parent is a Service, not a Gateway — this is mesh routing
+      port: 8000
+  rules:
+    - backendRefs:
+        - name: paperless
+          port: 8000
+      timeouts:
+        request: 30s
+```
+
+GAMMA is currently experimental in the Gateway API spec (the `parentRef` to a `Service` is
+not yet GA). In practice, Istio's GAMMA support works reliably, but you are using an
+experimental feature.
+
+**Bottom line**: Gateway API unifies the API surface for both ingress and mesh routing when
+Istio is the implementation. You get one set of objects (`Gateway`, `HTTPRoute`) rather than
+`Gateway` + `IngressRoute` + `VirtualService`.
+
+---
+
+### HTTP metrics: what Gateway API provides (and what it does not)
+
+The Gateway API spec defines no metrics format or collection mechanism. Metrics come entirely
+from the implementation:
+
+| Implementation | Ingress metrics | East-west metrics | Detail level |
+|---|---|---|---|
+| Traefik v3 | Yes (Prometheus) | No (Traefik only sees ingress traffic) | Per-route: request count, latency, status codes |
+| Istio (Envoy sidecars) | Yes (via ingress gateway) | Yes (every pod-to-pod call) | Per-route, per-source, per-destination: request count, p50/p99 latency, error rate |
+| Envoy Gateway | Yes (Prometheus) | No (ingress only) | Per-route, similar depth to Traefik |
+| Cilium | Yes (Hubble) | Yes (eBPF layer) | Network-level; less HTTP-detail than Istio |
+
+For **"which HTTP endpoints are hit and how often"** across all services (including
+pod-to-pod calls like Immich → immich-db queries, or Paperless → paperless-redis), only
+Istio provides complete coverage. Traefik sees only the requests that enter through the
+ingress; it has no visibility into intra-cluster traffic.
+
+With Istio, every request passing through an Envoy sidecar is recorded. The built-in Kiali
+dashboard shows a live graph of which services call which, with request rates and error
+rates. The raw metrics (scraped by Prometheus) follow the `istio_requests_total` naming
+convention and include labels for source workload, destination workload, HTTP method,
+response code, and URL path (when configured).
+
+---
+
+### Comparison of setup options
+
+Three realistic configurations for this homelab, ordered from lowest to highest complexity:
+
+#### Option 1: Traefik v3 with Gateway API (no mesh)
+
+Traefik watches `HTTPRoute` instead of `IngressRoute`. No Istio. DNS goes through your
+external DNS server, TLS via cert-manager wildcard.
+
+- **Routing API**: `GatewayClass` + `Gateway` + `HTTPRoute` (standard, portable)
+- **Ingress metrics**: Traefik Prometheus metrics (per-route)
+- **East-west metrics**: none
+- **Pod-to-pod encryption**: none (acceptable on a single private node)
+- **Overhead**: ~0 additional (replaces `IngressRoute` objects 1:1)
+- **Best for**: simplest migration — familiar Traefik, modern API surface
+
+#### Option 2: Traefik v3 (Gateway API) + Istio (mesh, GAMMA optional)
+
+Traefik handles ingress via `HTTPRoute`. Istio handles the mesh. You can optionally use
+GAMMA `HTTPRoute` for east-west routing in place of Istio `VirtualService` objects.
+
+- **Routing API**: `HTTPRoute` for ingress (Traefik) + `HTTPRoute` for mesh (Istio GAMMA, optional) or `VirtualService` (Istio-native, stable)
+- **Ingress metrics**: both Traefik and Istio ingress gateway (pick one)
+- **East-west metrics**: Istio Envoy — full per-request HTTP observability
+- **Pod-to-pod encryption**: automatic Istio mTLS
+- **Overhead**: Istio istiod (~300–500 MB) + ~50–100 MB per pod sidecar
+- **Best for**: wanting full observability and the option to add `AuthorizationPolicy` later
+
+#### Option 3: Istio as the sole gateway + mesh (no Traefik)
+
+Istio's own ingress gateway becomes the `Gateway` API implementation. No Traefik.
+`HTTPRoute` objects are watched by Istio for both ingress and mesh routing.
+
+- **Routing API**: `HTTPRoute` for everything (unified)
+- **Metrics**: Istio covers both ingress and east-west
+- **Pod-to-pod encryption**: automatic mTLS
+- **Overhead**: slightly lower than Option 2 (one gateway process instead of two)
+- **Tradeoff**: loses Traefik's ergonomics, Cloudflare DNS plugin familiarity, and easy
+  `hostPort` binding. Istio's ingress gateway needs a `LoadBalancer` service or `hostPort`
+  configuration that is less documented than Traefik's equivalent.
+
+---
+
+### Recommendation for this homelab
+
+**Option 1** if you want the cleanest migration with zero new dependencies: switch from
+`IngressRoute` to `HTTPRoute` while keeping Traefik as the implementation. The routing
+API becomes vendor-neutral. No mesh overhead.
+
+**Option 2** if the per-endpoint HTTP metrics matter. Istio's east-west observability is
+the only way to see traffic between pods (e.g. how many queries Immich makes to its
+database per minute). This is genuinely useful for profiling and debugging, not just
+security theatre. The resource overhead on a well-specced Debian server is acceptable.
+
+**Do not start with Option 3** unless you specifically want to reduce the number of
+running components. Istio as an ingress gateway is functional but requires more manual
+configuration than Traefik for the TLS + Cloudflare workflow already documented in this
+file.
+
+---
+
+### What Gateway API does NOT change
+
+- **cert-manager and TLS**: unchanged. The wildcard Secret `homelab-dot-davidsilva-dev-tls`
+  is referenced in the `Gateway` listener's `certificateRefs` exactly as before.
+- **The port-53 / AdGuard problem**: already gone in this setup. Gateway API has no DNS
+  opinion.
+- **Storage, StatefulSets, PVCs**: networking layer only.
+- **The Go CLI**: `HTTPRoute` objects are just more CRDs to manage via `client-go`. The
+  CLI can be extended to create them the same way it creates `IngressRoute` objects today.
