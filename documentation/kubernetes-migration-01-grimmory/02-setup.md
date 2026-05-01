@@ -1,199 +1,84 @@
 # Grimmory on Kubernetes — Setup
 
-Install all the tools, start Minikube, and prepare storage. This only needs to be done once.
+Install the tools and run the startup script. This page only covers what needs to be done once on
+a new machine. The script handles everything else.
 
 ---
 
 ## 1. Install dependencies
 
-Docker Desktop must be installed and **running** before you start Minikube — it is the VM engine
-Minikube will use.
+Docker Desktop must be installed and **running** — Minikube uses it as its engine.
 
-The remaining tools install via Homebrew:
+Install the remaining tools via Homebrew:
 
 ```sh
-# Minikube — the local Kubernetes cluster
-brew install minikube
-
-# kubectl — the CLI for talking to Kubernetes
-brew install kubernetes-cli
-
-# Helm — the Kubernetes package manager
-brew install helm
+brew install minikube kubernetes-cli
 ```
 
-Verify the installs:
+Verify:
 
 ```sh
-minikube version    # Minikube v1.x.x
-kubectl version --client --short   # Client Version: v1.x.x
-helm version --short   # v3.x.x
+minikube version   # v1.x.x
+kubectl version --client --short   # v1.x.x
 ```
 
 ---
 
-## 2. Start the Minikube cluster
+## 2. Configure Docker Desktop memory
 
-```sh
-minikube start --driver=docker
-```
-
-Minikube will use Docker Desktop as its engine and allocate the memory and CPUs you have already
-configured in Docker Desktop's settings (Resources → Advanced). If you want to override them for
-this cluster:
-
-```sh
-minikube start --driver=docker --memory=4096 --cpus=2
-```
-
-> **Why Docker and not QEMU?** QEMU's default network mode (SLIRP) only allows outbound connections
-> from the VM, which breaks `minikube mount`. The Docker driver uses Docker's network stack, which
-> supports the bidirectional connection that `minikube mount` requires — no extra setup needed.
-
-The first run pulls the Minikube base image (~500 MB) and can take a few minutes. You should see:
-
-```
-✅  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
-```
-
-Verify the cluster is up:
-
-```sh
-kubectl get nodes
-# NAME       STATUS   ROLES           AGE   VERSION
-# minikube   Ready    control-plane   1m    v1.x.x
-```
-
-One node called `minikube` in `Ready` state means everything is working.
+Grimmory is a JVM app and MariaDB also needs headroom. Open Docker Desktop →
+**Settings → Resources → Advanced** and set memory to at least **4 GB** (6 GB is comfortable).
 
 ---
 
-## 3. Mount `./test-data` into Minikube
+## 3. Start the dev environment
 
-`minikube mount` creates a live bridge between a directory on your Mac and a path inside the
-Minikube container. Any file you write to `./test-data` on your Mac immediately appears at
-`/test-data` inside the container — and vice versa.
-
-**Open a new terminal tab** and run (from the project root):
+From the project root:
 
 ```sh
-minikube mount "$(pwd)/test-data:/test-data"
+scripts/dev-up.sh
 ```
 
-Expected output:
+The script does the following in order:
 
-```
-📁  Mounting host path /Users/dev/Developer/auto-homelab/test-data into VM as /test-data ...
-    ▪ Mount type:   9p
-    ▪ User ID:      docker
-    ▪ Group ID:     docker
-    ▪ Version:      9p2000.L
-    ▪ Message Size: 262144
-    ▪ Bind Address: 127.0.0.1:xxxxx
-🚀  Userspace file server: ufs starting
-✅  Successfully mounted /Users/.../test-data to /test-data
+| Step | What happens |
+|---|---|
+| Minikube | Starts the cluster with the Docker driver (skips if already running) |
+| test-data | Creates the local directories that back the volumes |
+| minikube mount | Bridges `./test-data` into the cluster as `/test-data` (runs in background) |
+| Manifests | Applies namespace → PVs → PVCs → Secret → Deployments → Services |
+| Watch | Streams pod status until you press Ctrl+C |
 
-📌  NOTE: This process must stay alive for the mount to be accessible ...
-```
-
-**Keep this terminal tab open.** The mount process must stay running for pods to access the files.
-If you stop it, pods that need storage will hang or crash.
-
-> **Tip:** Bookmark this terminal. Any time you restart your Mac or close the tab you must re-run
-> the mount command before starting Grimmory.
-
-Verify the mount from inside Minikube:
+Once both pods show `1/1 Running`, open the app:
 
 ```sh
-minikube ssh "ls /test-data"
-# grimmory
+minikube service grimmory -n grimmory
 ```
+
+Minikube creates a localhost tunnel and opens your browser.
 
 ---
 
-## 4. Create the test-data directories
+## What the mount process means for restarts
 
-The directories need to exist before the pods start. Run once from the project root:
+`minikube mount` must stay running for pods to access storage. The script starts it as a background
+process and stores its PID in `/tmp/minikube-mount-grimmory.pid`.
 
-```sh
-mkdir -p test-data/grimmory/app-data \
-         test-data/grimmory/books \
-         test-data/grimmory/mariadb
-```
-
----
-
-## 5. Pre-create storage (PVs and PVCs)
-
-Helm will create PVCs for us, but we want to control exactly where the data lands (inside
-`./test-data`). The way to do that is to create the PVs and PVCs *before* Helm runs, and then tell
-Helm to use the ones we already made (via `existingClaim`).
-
-Apply the storage manifests (these are cluster-scoped PVs, so no namespace needed for that file):
-
-```sh
-kubectl apply -f kubernetes/grimmory/storage/pvs.yaml
-kubectl apply -f kubernetes/grimmory/namespace.yaml
-kubectl apply -f kubernetes/grimmory/storage/pvcs.yaml
-```
-
-Check everything bound correctly — all PVCs should show `STATUS=Bound`:
-
-```sh
-kubectl get pvc -n grimmory
-```
-
-Expected output:
-
-```
-NAME                   STATUS   VOLUME                  CAPACITY   ACCESS MODES
-grimmory-app-data      Bound    grimmory-app-data        5Gi        RWO
-grimmory-books         Bound    grimmory-books           50Gi       RWO
-grimmory-mariadb       Bound    grimmory-mariadb         5Gi        RWO
-```
-
-If a PVC shows `Pending` instead of `Bound`, see the troubleshooting section in
-[03-deploy.md](03-deploy.md).
+- If you **reboot your Mac**, run `scripts/dev-up.sh` again — it detects the stale PID and restarts
+  the mount.
+- If you **just want to reapply manifests** after changing a YAML file, `scripts/dev-up.sh` is safe
+  to re-run; `kubectl apply` is idempotent.
 
 ---
 
-## 6. Get the Grimmory Helm chart
-
-The chart lives inside the Grimmory source repository. Clone it somewhere outside the project
-(we don't want to commit it here):
+## Tearing down
 
 ```sh
-git clone https://github.com/grimmory-tools/grimmory.git /tmp/grimmory-src
+# Stop the cluster (preserves test-data/)
+scripts/dev-down.sh
+
+# Stop the cluster and delete all data
+scripts/dev-down.sh --wipe
 ```
 
-Download the chart's dependencies (Bitnami's MariaDB sub-chart):
-
-```sh
-helm dependency update /tmp/grimmory-src/deploy/helm/grimmory
-```
-
-You should see a `charts/` directory appear inside the chart with a MariaDB `.tgz` file:
-
-```sh
-ls /tmp/grimmory-src/deploy/helm/grimmory/charts/
-# mariadb-22.x.x.tgz
-```
-
----
-
-## What `helm dependency update` actually did
-
-Grimmory's `Chart.yaml` declares:
-
-```yaml
-dependencies:
-  - name: mariadb
-    version: 22.0.*
-    repository: oci://registry-1.docker.io/bitnamicharts
-```
-
-`helm dependency update` read that, pulled Bitnami's MariaDB chart from Docker Hub's OCI registry,
-and placed it in `charts/`. When you run `helm install` next, Helm installs both the Grimmory
-templates *and* the MariaDB sub-chart in one shot — MariaDB does not need to be set up separately.
-
-Continue to [03-deploy.md](03-deploy.md).
+Continue to [03-deploy.md](03-deploy.md) for useful runtime commands and troubleshooting.

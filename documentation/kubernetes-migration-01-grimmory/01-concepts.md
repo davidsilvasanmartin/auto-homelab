@@ -36,7 +36,7 @@ Deployment (the recipe + the "keep 1 running" rule)
   └── Pod (the actual running container)
 ```
 
-In this guide we create two Deployments: one for Grimmory and one for MariaDB.
+We have two Deployments: one for Grimmory and one for MariaDB.
 
 ### Service
 
@@ -61,11 +61,10 @@ Services also control how traffic reaches the cluster from outside:
 | Service type | Reachable from |
 |---|---|
 | **ClusterIP** (default) | Only inside the cluster |
-| **NodePort** | Outside the cluster via `<node-ip>:<port>` |
+| **NodePort** | Outside the cluster via a tunnel or node IP |
 | **LoadBalancer** | Outside via a cloud load balancer |
 
-For this test we expose Grimmory as a `NodePort` on port 30001. MariaDB stays `ClusterIP` — only
-Grimmory needs to reach it.
+We expose Grimmory as a `NodePort`. MariaDB stays `ClusterIP` — only Grimmory needs to reach it.
 
 ### Namespace
 
@@ -73,7 +72,7 @@ A Namespace is a virtual partition inside a cluster. Resources in different name
 conflict: you can have a Service named `grimmory` in the `grimmory` namespace and another one in
 `paperless` without collision.
 
-We put everything for Grimmory in a namespace called `grimmory`.
+Everything for Grimmory lives in a namespace called `grimmory`.
 
 ### PersistentVolume and PersistentVolumeClaim
 
@@ -87,108 +86,99 @@ and book libraries need durable storage that outlives the container.
 - The Pod mounts the PVC like a normal directory.
 
 ```
-Pod ──mounts──► PVC "grimmory-app-data" ──bound to──► PV ──backed by──► /test-data/grimmory/app-data
+Pod ──mounts──► PVC "grimmory-app-data" ──bound to──► PV ──backed by──► real storage
 ```
 
-In this guide we pre-create `hostPath` PVs that point into `./test-data/` on your Mac (exposed to
-Minikube via `minikube mount`).
+This is where dev and production diverge:
+
+| Environment | PV backed by |
+|---|---|
+| Dev (this guide) | A directory on your Mac, exposed to Minikube via `minikube mount` |
+| Production | An NFS or SMB share on the Debian server |
+
+The PVCs and everything above them are identical in both environments. Only the PV definitions
+change. This is intentional: it keeps the Deployment manifests environment-agnostic.
 
 ### Secret
 
-A Secret holds sensitive configuration (passwords, tokens) as base64-encoded key-value pairs.
-Kubernetes makes them available to Pods as environment variables or mounted files, without putting
-them in plain text in your YAML.
+A Secret holds sensitive configuration (passwords, tokens) as key-value pairs. Kubernetes makes
+them available to Pods as environment variables or mounted files, without putting them in plain text
+in your YAML.
 
-In this guide a Secret holds the MariaDB username, password, and JDBC URL that Grimmory reads on
+The `secret.yaml` in this repo holds the MariaDB credentials and JDBC URL that Grimmory reads at
 startup.
 
----
+### Init container
 
-## What Helm is
-
-Helm is the package manager for Kubernetes — think Homebrew, but for k8s applications.
-
-Without Helm, deploying Grimmory means writing and applying seven or more individual YAML files:
-Namespace, Secret, two PVs, two PVCs, two Deployments, two Services. Helm bundles all of that into
-a single **chart** and lets you install it with one command.
-
-### Charts
-
-A chart is a directory of templates. Each template is a YAML file with placeholders:
-
-```yaml
-# templates/service.yaml (simplified)
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-grimmory
-spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-```
-
-### Values
-
-`values.yaml` inside the chart provides defaults for all those placeholders. You override the ones
-you care about in your own file (called a *values override*) and pass it to Helm on install:
-
-```sh
-helm install grimmory ./chart --values my-overrides.yaml
-```
-
-Helm merges your overrides on top of the defaults and renders the final YAML.
-
-### Releases
-
-When you run `helm install`, Helm creates a **release** — a named, versioned installation of a
-chart. You can upgrade it (`helm upgrade`), roll it back (`helm rollback`), or delete it
-(`helm uninstall`).
-
-```
-Chart (the recipe)  +  Values (your config)  =  Release (running in the cluster)
-```
-
-### Dependencies
-
-A chart can declare that it depends on other charts. Grimmory's chart depends on Bitnami's MariaDB
-chart. Running `helm dependency update` downloads those sub-charts so you can install everything
-in one go — no need to set up MariaDB separately.
+An init container runs and completes *before* the main container starts. Grimmory's Deployment
+includes one that loops until MariaDB's port 3306 accepts connections, then exits. This prevents
+Grimmory from crashing on startup because the database wasn't ready yet.
 
 ---
 
-## Architecture for this guide
+## How the manifests are organised
+
+All Kubernetes YAML for Grimmory lives in `kubernetes/grimmory/`:
+
+```
+kubernetes/grimmory/
+├── namespace.yaml              # the grimmory namespace
+├── secret.yaml                 # DB credentials
+├── storage/
+│   ├── pvs.yaml                # PersistentVolumes (dev: hostPath)
+│   └── pvcs.yaml               # PersistentVolumeClaims (same in dev and prod)
+├── mariadb/
+│   ├── deployment.yaml
+│   └── service.yaml
+└── grimmory/
+    ├── deployment.yaml
+    └── service.yaml
+```
+
+These are plain Kubernetes manifests — no templating engine, no package manager. What you read is
+exactly what gets applied to the cluster.
+
+> **What about Helm?** Helm is a package manager for Kubernetes that adds templating and versioning
+> on top of plain manifests. It makes sense when you're distributing software to others or managing
+> many similar deployments. For a single homelab app with custom configuration, plain manifests are
+> simpler and more transparent — you always know exactly what's running.
+
+---
+
+## Architecture
 
 ```
 Your Mac
-├── ./test-data/grimmory/   ← files visible here
+├── test-data/grimmory/         ← files visible here
 │   ├── app-data/
 │   ├── books/
+│   ├── bookdrop/
 │   └── mariadb/
 │
-└── minikube mount (live bridge)
+└── minikube mount (9p bridge, started by dev-up.sh)
         │
         ▼
 Minikube container (Docker)  /test-data/grimmory/
         │
-        ▼  hostPath PVs
+        ▼  hostPath PVs (dev only)
 ┌──────────────────────────────────────────────┐
 │  namespace: grimmory                         │
 │                                              │
 │  Secret ── grimmory-db-credentials           │
 │                                              │
 │  Deployment/mariadb ── Service/mariadb       │
-│    Pod: mariadb:11        (ClusterIP:3306)   │
-│    PVC: grimmory-mariadb                     │
+│    Pod: mariadb:11.4      (ClusterIP:3306)   │
+│    PVC: grimmory-mariadb-data                │
 │                                              │
 │  Deployment/grimmory ── Service/grimmory     │
-│    Pod: grimmory/grimmory  (NodePort:30001)  │
+│    Pod: grimmory          (NodePort:30001)   │
 │    PVC: grimmory-app-data                    │
 │    PVC: grimmory-books                       │
+│    PVC: grimmory-bookdrop                    │
 └──────────────────────────────────────────────┘
         │
-        ▼ NodePort / minikube service tunnel
-http://127.0.0.1:<port>  ← you open this in your browser
+        ▼ minikube service tunnel
+http://127.0.0.1:<port>  ← open in browser
 ```
 
 Continue to [02-setup.md](02-setup.md).

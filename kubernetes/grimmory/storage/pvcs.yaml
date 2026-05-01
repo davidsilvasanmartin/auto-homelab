@@ -27,12 +27,25 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: grimmory-mariadb
+  name: grimmory-bookdrop
   namespace: grimmory
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: ""
-  volumeName: grimmory-mariadb
+  volumeName: grimmory-bookdrop
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grimmory-mariadb-data
+  namespace: grimmory
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ""
+  volumeName: grimmory-mariadb-data
   resources:
     requests:
       storage: 5Gi

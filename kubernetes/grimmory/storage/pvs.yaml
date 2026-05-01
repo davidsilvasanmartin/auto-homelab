@@ -25,7 +25,19 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: grimmory-mariadb
+  name: grimmory-bookdrop
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /test-data/grimmory/bookdrop
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grimmory-mariadb-data
 spec:
   capacity:
     storage: 5Gi
