@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grimmory
+  namespace: grimmory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grimmory
+  template:
+    metadata:
+      labels:
+        app: grimmory
+    spec:
+      initContainers:
+        # Wait for MariaDB to accept connections before starting Grimmory.
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z mariadb 3306; do
+                echo "waiting for mariadb..."; sleep 2
+              done
+      containers:
+        - name: grimmory
+          image: grimmory/grimmory:latest
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: grimmory-db-credentials
+                  key: database-url
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grimmory-db-credentials
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grimmory-db-credentials
+                  key: db-password
+            - name: DISK_TYPE
+              value: LOCAL
+            - name: API_DOCS_ENABLED
+              value: "false"
+            - name: TZ
+              value: Europe/London
+          ports:
+            - containerPort: 6060
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+            - name: books
+              mountPath: /books
+            - name: bookdrop
+              mountPath: /bookdrop
+          livenessProbe:
+            httpGet:
+              path: /api/v1/healthcheck
+              port: 6060
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/healthcheck
+              port: 6060
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: grimmory-app-data
+        - name: books
+          persistentVolumeClaim:
+            claimName: grimmory-books
+        - name: bookdrop
+          persistentVolumeClaim:
+            claimName: grimmory-bookdrop

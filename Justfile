@@ -19,6 +19,11 @@ configure:
 start *services="":
     go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} start {{services}}
 
+# Starts the Kubernetes part of this homelab
+start-kb:
+    minikube start --driver=docker
+    minikube mount "$(pwd)/test-data:/test-data"
+
 # [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre` // `just docker_context=desktop-linux stop`
 stop *services="":
     go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} stop {{services}}

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grimmory-app-data
+  namespace: grimmory
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ""   # empty = static binding; prevents dynamic provisioner from intercepting
+  volumeName: grimmory-app-data
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grimmory-books
+  namespace: grimmory
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ""
+  volumeName: grimmory-books
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grimmory-mariadb
+  namespace: grimmory
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ""
+  volumeName: grimmory-mariadb
+  resources:
+    requests:
+      storage: 5Gi
