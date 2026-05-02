@@ -4,6 +4,9 @@ home.iml
 .env*
 test-data/
 
+# Kubernetes secrets with real credentials (copy from secret.template.yaml and fill in)
+kubernetes/**/secret.yaml
+
 # Virtual environments
 .venv
 

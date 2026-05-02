@@ -1,3 +1,8 @@
+# PersistentVolumeClaims — identical in dev and prod.
+#
+# storageClassName: "" disables dynamic provisioning and forces static binding
+# to a PV whose name matches `volumeName`. The PV files (pvs.dev.yaml or
+# pvs.prod.yaml) must be applied before these claims.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -5,7 +10,7 @@ metadata:
   namespace: grimmory
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: ""   # empty = static binding; prevents dynamic provisioner from intercepting
+  storageClassName: ""
   volumeName: grimmory-app-data
   resources:
     requests:

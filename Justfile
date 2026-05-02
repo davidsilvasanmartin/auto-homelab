@@ -19,10 +19,17 @@ configure:
 start *services="":
     go run . --log-level debug {{ if docker_context != "" { "--docker-context " + docker_context } else { "" } }} start {{services}}
 
-# Starts the Kubernetes part of this homelab
-start-kb:
-    minikube start --driver=docker
-    minikube mount "$(pwd)/test-data:/test-data"
+# [☸ K8S] Start the Grimmory Kubernetes cluster (dev: Minikube on macOS)
+k8s-up:
+    go run . k8s up
+
+# [☸ K8S] Stop the Grimmory Kubernetes cluster, preserving data
+k8s-down:
+    go run . k8s down
+
+# [☸ K8S] Stop the cluster and delete all persistent data
+k8s-wipe:
+    go run . k8s down --wipe
 
 # [🔧 APP] Stops a service, or all services if one is not specified. Example: `just stop` // `just stop calibre` // `just docker_context=desktop-linux stop`
 stop *services="":

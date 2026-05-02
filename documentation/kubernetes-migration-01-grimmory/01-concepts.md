@@ -1,8 +1,8 @@
-# Grimmory on Kubernetes — Concepts
+# Grimmory on Kubernetes — Concepts & Architecture
 
-Before running any commands, this page explains what Kubernetes actually is and why each piece
-exists. Skip to [02-setup.md](02-setup.md) if you're already comfortable with Pods, Services, and
-PVCs.
+This page explains the architecture decisions behind the Kubernetes setup: what runs where, how
+storage works across environments, and how configuration is managed. Skip to
+[02-setup.md](02-setup.md) if you already know Kubernetes well.
 
 ---
 
@@ -10,9 +10,9 @@ PVCs.
 
 Kubernetes is a system that runs your containers and keeps them running. You describe *what you
 want* (e.g. "I want one Grimmory container always running, listening on port 6060"), and Kubernetes
-continuously makes the real world match that description — restarting containers that crash,
-rescheduling them if a machine dies, etc. You talk to Kubernetes by submitting YAML files that
-describe your desired state.
+continuously reconciles reality against that description — restarting crashed containers,
+rescheduling them if a node dies. You communicate with Kubernetes by applying YAML manifests that
+describe desired state.
 
 ---
 
@@ -20,113 +20,144 @@ describe your desired state.
 
 ### Pod
 
-A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers that need to
-run together and share the same network and storage. For Grimmory, each Pod is just one container.
+The smallest deployable unit. It wraps one or more containers that share the same network and
+storage. For Grimmory, every Pod is a single container.
 
-Think of a Pod as a single running process. If it crashes, it's gone — a higher-level object
-(Deployment) is responsible for recreating it.
+Pods are ephemeral. If a Pod crashes it is gone — a Deployment is responsible for recreating it.
 
 ### Deployment
 
-A Deployment says "always keep N copies of this Pod running." If your Pod crashes or you delete it,
-the Deployment notices and creates a new one automatically.
+A Deployment declares "always keep N copies of this Pod running." It watches Pod health and creates
+new Pods to replace any that disappear.
 
-```
-Deployment (the recipe + the "keep 1 running" rule)
-  └── Pod (the actual running container)
-```
-
-We have two Deployments: one for Grimmory and one for MariaDB.
+This project has two Deployments: one for Grimmory, one for MariaDB.
 
 ### Service
 
-This is the piece that trips up newcomers most. Here's the problem it solves:
-
-Every Pod gets a random IP address when it starts, and a different one when it restarts. So if
-Grimmory wants to talk to MariaDB at `10.244.0.5:3306`, that address might be wrong tomorrow after
-MariaDB restarts.
-
-A **Service** is a stable, named network endpoint that sits in front of one or more Pods. It always
-resolves to the current healthy Pod, no matter how many times it has restarted or what IP it has.
+Every Pod gets a random IP address when it starts, and a different one if it restarts. A Service is
+a stable, named endpoint that always routes to the current healthy Pod. Inside the cluster, Pods
+find each other by Service name — not by IP.
 
 ```
-Grimmory pod  ──connects to──►  Service "mariadb" (stable)
-                                   └──► MariaDB Pod (IP changes, Service doesn't)
+Grimmory pod ──► Service "mariadb" (stable DNS name)
+                    └──► MariaDB Pod (IP changes; Service doesn't)
 ```
 
-Inside the cluster, Pods find each other by Service name (e.g. `mariadb:3306`), not by IP.
-
-Services also control how traffic reaches the cluster from outside:
-
-| Service type | Reachable from |
-|---|---|
-| **ClusterIP** (default) | Only inside the cluster |
-| **NodePort** | Outside the cluster via a tunnel or node IP |
-| **LoadBalancer** | Outside via a cloud load balancer |
-
-We expose Grimmory as a `NodePort`. MariaDB stays `ClusterIP` — only Grimmory needs to reach it.
+MariaDB is `ClusterIP` (reachable only inside the cluster). Grimmory is `NodePort` (reachable from
+outside via `minikube service`).
 
 ### Namespace
 
-A Namespace is a virtual partition inside a cluster. Resources in different namespaces don't
-conflict: you can have a Service named `grimmory` in the `grimmory` namespace and another one in
-`paperless` without collision.
+A virtual partition inside a cluster. All Grimmory resources live in the `grimmory` namespace.
 
-Everything for Grimmory lives in a namespace called `grimmory`.
+### ConfigMap
+
+A key-value store for non-sensitive configuration. Values are injected into Pods as environment
+variables. Changing a ConfigMap and rolling the Deployment is the correct way to change application
+settings.
+
+This project uses one ConfigMap (`grimmory-config`) for things like timezone and feature flags.
+
+### Secret
+
+Like a ConfigMap but for sensitive values: passwords, connection strings. Kubernetes base64-encodes
+the values (this is NOT encryption — it is encoding). Secrets are injected the same way as
+ConfigMaps.
+
+**Rule of thumb: if it would be embarrassing to commit it to git, it goes in a Secret, not a
+ConfigMap.**
 
 ### PersistentVolume and PersistentVolumeClaim
 
-Containers are ephemeral — their local filesystem is wiped when the container restarts. Databases
-and book libraries need durable storage that outlives the container.
+Containers are ephemeral — their local filesystem is wiped on restart. Databases and book libraries
+need storage that outlives the container.
 
-- A **PersistentVolume (PV)** represents a real piece of storage: a directory on disk, an NFS
-  share, a cloud disk, etc.
-- A **PersistentVolumeClaim (PVC)** is a request for storage: "I need 5 Gi, read-write." Kubernetes
-  binds it to a matching PV.
+- A **PersistentVolume (PV)** represents real storage: a directory, an NFS share, a cloud disk.
+- A **PersistentVolumeClaim (PVC)** is a request for storage: "I need 5 Gi, read-write."
+  Kubernetes binds the claim to a matching PV.
 - The Pod mounts the PVC like a normal directory.
 
 ```
 Pod ──mounts──► PVC "grimmory-app-data" ──bound to──► PV ──backed by──► real storage
 ```
 
-This is where dev and production diverge:
-
-| Environment | PV backed by |
-|---|---|
-| Dev (this guide) | A directory on your Mac, exposed to Minikube via `minikube mount` |
-| Production | An NFS or SMB share on the Debian server |
-
-The PVCs and everything above them are identical in both environments. Only the PV definitions
-change. This is intentional: it keeps the Deployment manifests environment-agnostic.
-
-### Secret
-
-A Secret holds sensitive configuration (passwords, tokens) as key-value pairs. Kubernetes makes
-them available to Pods as environment variables or mounted files, without putting them in plain text
-in your YAML.
-
-The `secret.yaml` in this repo holds the MariaDB credentials and JDBC URL that Grimmory reads at
-startup.
-
 ### Init container
 
 An init container runs and completes *before* the main container starts. Grimmory's Deployment
-includes one that loops until MariaDB's port 3306 accepts connections, then exits. This prevents
-Grimmory from crashing on startup because the database wasn't ready yet.
+includes one that loops until MariaDB's port 3306 accepts connections. This prevents Grimmory from
+crashing at startup because the database wasn't ready yet.
 
 ---
 
-## How the manifests are organised
+## The two core design decisions
 
-All Kubernetes YAML for Grimmory lives in `kubernetes/grimmory/`:
+### 1. Storage: separating environment-specific PVs from environment-agnostic PVCs
+
+The only thing that differs between dev and prod is WHERE storage lives. Everything above the PV
+layer (PVCs, Deployments, Services) is identical.
+
+| Layer | Dev (Minikube on macOS) | Prod (Debian + kubeadm) |
+|---|---|---|
+| PV backend | Host directory inside Minikube VM | NFS share on the home server or NAS |
+| PV file | `storage/pvs.dev.yaml` | `storage/pvs.prod.yaml` |
+| PVC file | `storage/pvcs.yaml` | `storage/pvcs.yaml` (same file) |
+| Deployments | identical | identical |
+
+The Go `k8s up` command applies the correct PV file based on the `--env` flag. Everything else is
+applied identically in both environments.
+
+This is the standard pattern: keep environment-specific concerns at the infrastructure layer (PVs),
+and keep the application layer (PVCs, Deployments, ConfigMaps) fully portable.
+
+#### Dev storage: minikube mount
+
+Minikube runs inside a Docker container. To make files on your Mac visible inside that container,
+`minikube mount` starts a 9P file server that bridges `<project-root>/test-data` into the VM at
+`/test-data`. The `hostPath` PVs in `pvs.dev.yaml` then point to `/test-data/grimmory/*` inside the
+VM.
+
+The `k8s up` command starts the mount in the background before applying manifests. The mount
+process must stay running for pods to access storage — if you reboot your Mac, run `just k8s-up`
+again.
+
+#### Prod storage: NFS
+
+Edit `storage/pvs.prod.yaml` and replace the placeholder `nfs.server` IP and `nfs.path` values
+with your actual network shares. You only need to do this once per environment.
+
+### 2. Configuration: ConfigMap for settings, Secret for credentials
+
+Non-sensitive settings (timezone, feature flags, disk type) live in `configmap.yaml` and are
+applied the same way in both environments. Change a setting by editing the ConfigMap and running
+`k8s up` again — the Deployment rolls automatically.
+
+Sensitive values (database passwords, connection strings) live in a Secret. The Secret is **not
+committed to git**. The workflow is:
+
+1. Copy `secret.template.yaml` to `secret.yaml` (git-ignored).
+2. Fill in real passwords.
+3. Apply once: `kubectl apply -f kubernetes/grimmory/secret.yaml`.
+
+The Go `k8s configure` command (to be implemented) will automate steps 1–3 interactively, similar
+to how `configure` works for Docker Compose. See [03-deploy.md](03-deploy.md) for the
+implementation guide.
+
+This mirrors the standard Kubernetes practice: infrastructure-as-code for everything except
+credentials, which are applied imperatively and never stored in source control.
+
+---
+
+## File layout
 
 ```
 kubernetes/grimmory/
 ├── namespace.yaml              # the grimmory namespace
-├── secret.yaml                 # DB credentials
+├── configmap.yaml              # non-sensitive settings (applied in all environments)
+├── secret.template.yaml        # template to copy → secret.yaml (git-ignored)
 ├── storage/
-│   ├── pvs.yaml                # PersistentVolumes (dev: hostPath)
-│   └── pvcs.yaml               # PersistentVolumeClaims (same in dev and prod)
+│   ├── pvs.dev.yaml            # PVs for Minikube (hostPath)
+│   ├── pvs.prod.yaml           # PVs for prod (NFS) — edit server IP and paths
+│   └── pvcs.yaml               # PVCs — identical in both environments
 ├── mariadb/
 │   ├── deployment.yaml
 │   └── service.yaml
@@ -135,49 +166,51 @@ kubernetes/grimmory/
     └── service.yaml
 ```
 
-These are plain Kubernetes manifests — no templating engine, no package manager. What you read is
-exactly what gets applied to the cluster.
+Plain manifests — no templating engine, no package manager. What you read is exactly what gets
+applied to the cluster.
 
-> **What about Helm?** Helm is a package manager for Kubernetes that adds templating and versioning
-> on top of plain manifests. It makes sense when you're distributing software to others or managing
-> many similar deployments. For a single homelab app with custom configuration, plain manifests are
-> simpler and more transparent — you always know exactly what's running.
+> **What about Helm or Kustomize?** Helm is a package manager useful for distributing software to
+> others. Kustomize adds overlay-based templating and is built into `kubectl`. Both are valuable
+> when environments diverge significantly. For this project, the only difference between dev and
+> prod is two YAML files (`pvs.dev.yaml` vs `pvs.prod.yaml`), so plain manifests with explicit
+> environment selection in the Go command are simpler and more transparent.
 
 ---
 
-## Architecture
+## Architecture diagram
 
 ```
 Your Mac
-├── test-data/grimmory/         ← files visible here
+├── test-data/grimmory/          ← your data (git-ignored)
 │   ├── app-data/
 │   ├── books/
 │   ├── bookdrop/
 │   └── mariadb/
 │
-└── minikube mount (9p bridge, started by dev-up.sh)
+└── minikube mount (9P bridge, started by "just k8s-up")
         │
         ▼
-Minikube container (Docker)  /test-data/grimmory/
+Minikube VM (Docker container)  /test-data/grimmory/
         │
-        ▼  hostPath PVs (dev only)
-┌──────────────────────────────────────────────┐
-│  namespace: grimmory                         │
-│                                              │
-│  Secret ── grimmory-db-credentials           │
-│                                              │
-│  Deployment/mariadb ── Service/mariadb       │
-│    Pod: mariadb:11.4      (ClusterIP:3306)   │
-│    PVC: grimmory-mariadb-data                │
-│                                              │
-│  Deployment/grimmory ── Service/grimmory     │
-│    Pod: grimmory          (NodePort:30001)   │
-│    PVC: grimmory-app-data                    │
-│    PVC: grimmory-books                       │
-│    PVC: grimmory-bookdrop                    │
-└──────────────────────────────────────────────┘
+        ▼  hostPath PVs (pvs.dev.yaml)
+┌──────────────────────────────────────────────────────┐
+│  namespace: grimmory                                 │
+│                                                      │
+│  ConfigMap: grimmory-config                          │
+│  Secret:    grimmory-db-credentials                  │
+│                                                      │
+│  Deployment/mariadb ── Service/mariadb               │
+│    Pod: mariadb:11.4       ClusterIP:3306            │
+│    PVC: grimmory-mariadb-data                        │
+│                                                      │
+│  Deployment/grimmory ── Service/grimmory             │
+│    Pod: grimmory           NodePort:30001            │
+│    PVC: grimmory-app-data                            │
+│    PVC: grimmory-books                               │
+│    PVC: grimmory-bookdrop                            │
+└──────────────────────────────────────────────────────┘
         │
-        ▼ minikube service tunnel
+        ▼ minikube service tunnel (opened on demand)
 http://127.0.0.1:<port>  ← open in browser
 ```
 

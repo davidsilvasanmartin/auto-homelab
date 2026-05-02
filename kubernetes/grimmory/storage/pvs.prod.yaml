@@ -1,0 +1,66 @@
+# PersistentVolumes for the PROD environment (Debian server with kubeadm).
+#
+# Storage is backed by NFS shares served from the home server or a NAS.
+# Edit the `nfs.server` and `nfs.path` fields to match your network layout
+# before applying this file.
+#
+# NFS supports ReadWriteMany, which is the correct access mode when a volume
+# can be mounted by multiple nodes simultaneously. For a single-node cluster
+# ReadWriteOnce also works, but ReadWriteMany is the accurate declaration.
+#
+# DO NOT apply this file in dev. Use pvs.dev.yaml instead.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grimmory-app-data
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.X   # ← replace with your NFS server IP
+    path: /exports/grimmory/app-data
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grimmory-books
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.X   # ← replace with your NFS server IP
+    path: /exports/grimmory/books
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grimmory-bookdrop
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.X   # ← replace with your NFS server IP
+    path: /exports/grimmory/bookdrop
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grimmory-mariadb-data
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: [ReadWriteMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: 192.168.1.X   # ← replace with your NFS server IP
+    path: /exports/grimmory/mariadb

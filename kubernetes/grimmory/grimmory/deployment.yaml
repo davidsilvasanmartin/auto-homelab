@@ -14,19 +14,18 @@ spec:
         app: grimmory
     spec:
       initContainers:
-        # Wait for MariaDB to accept connections before starting Grimmory.
         - name: wait-for-db
           image: busybox:1.36
           command:
             - sh
             - -c
-            - |
-              until nc -z mariadb 3306; do
-                echo "waiting for mariadb..."; sleep 2
-              done
+            - until nc -z mariadb 3306; do echo "waiting for mariadb..."; sleep 2; done
       containers:
         - name: grimmory
           image: grimmory/grimmory:latest
+          envFrom:
+            - configMapRef:
+                name: grimmory-config
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -43,12 +42,6 @@ spec:
                 secretKeyRef:
                   name: grimmory-db-credentials
                   key: db-password
-            - name: DISK_TYPE
-              value: LOCAL
-            - name: API_DOCS_ENABLED
-              value: "false"
-            - name: TZ
-              value: Europe/London
           ports:
             - containerPort: 6060
           volumeMounts:

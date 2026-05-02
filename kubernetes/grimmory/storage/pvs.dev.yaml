@@ -1,3 +1,10 @@
+# PersistentVolumes for the DEV environment (Minikube on macOS).
+#
+# Storage is backed by host directories inside the Minikube VM.
+# The Go "k8s up" command mounts <project-root>/test-data into the VM at /test-data
+# before applying these manifests, so the paths below resolve correctly.
+#
+# DO NOT apply this file in production. Use pvs.prod.yaml instead.
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -7,6 +14,7 @@ spec:
     storage: 5Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /test-data/grimmory/app-data
 ---
@@ -19,6 +27,7 @@ spec:
     storage: 50Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /test-data/grimmory/books
 ---
@@ -31,6 +40,7 @@ spec:
     storage: 10Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /test-data/grimmory/bookdrop
 ---
@@ -43,5 +53,6 @@ spec:
     storage: 5Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
   hostPath:
     path: /test-data/grimmory/mariadb
